@@ -1,0 +1,33 @@
+program prayer_test;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+var
+  maxpray: integer;
+
+procedure getpraylvl;
+begin
+end;
+
+procedure praypottest;
+var
+  maxpray_math, currentpercent: extended;
+
+begin
+  //maxpray:= prayer.GetPrayerLevel;
+  writeln(tostr(prayer.GetPrayerLevel));
+  maxpray_math:= maxpray/100;
+  currentpercent:= maxpray_math * minimap.GetPrayerLevel;
+
+  writeln(currentpercent);
+end;
+
+
+begin
+  gametabs.Open(ERSGAMETAB.STATS);
+  wait(100);
+  maxpray:= prayer.GetPrayerLevel;
+  wait(100);
+  praypottest;
+end.

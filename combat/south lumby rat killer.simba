@@ -1,0 +1,312 @@
+program rangedcowkiller;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+{add settings for ranged attacking (arrow count, switching when out of arrows, etc)}
+{add failsafe, if we are gaining exp then we're okay, if exp has not been gained recently then log out}
+
+const
+  debugit = false;
+
+  whatmonster = 'Frog';
+  whatfood = 'Trout';
+  pshift = 210;          //100 for melee equipment,  210 for mage,
+  maxdist = 15;         //max distance from starting point
+  maxgrabattempts = 3; //max pick up attempts per kill
+
+var
+  wrld: TIntegerArray;
+  timer: TStopwatch;
+  RSW: TRSWalker;
+  boner: string;
+  MonsterCTS:  TCTS2Color;
+  coolstuff: tstringarray;
+  xpbox: TBox;
+  zoomlev: integer;
+  startpoint: tpoint;
+
+
+procedure setup;
+begin
+  xpbox:= box(466, 45, 514, 169);
+
+  if not rsclient.IsLoggedIn then
+    exit;
+
+  srl.Setup;
+
+  if debugit then
+    repeat
+      writeln(srl.GetPixelShift(mainscreen.GetPlayerBox, 2000));
+    until(false);
+
+  begin
+    rsw.Setup('world');
+    options.SetZoomLevel(randomrange(40, 45));
+    minimap.SetCompassAngle(randomrange(1, 270));
+
+    startpoint:= rsw.GetMyPos;
+    writeln(startpoint);
+
+    coolstuff:= ['Coins', 'Rune', 'rune', 'Dragon', 'scroll', 'boots', 'Grimy', 'Bones', 'Uncut', 'Mystic', 'Snapdragon'];
+
+    case whatmonster of
+      'Cockatrice': begin MonsterCTS:= CTS2(3040112, 8, 0.44, 1.55); boner:= 'Bones'; zoomlev:= 45; end; //cockatrices
+      'Skeleton': begin monsterCTS:= CTS2(8752526, 7, 0.28, 0.16); boner:= 'Bones'; end; // skeletons
+      'Hobgoblin': begin monstercts:= CTS2(1601175, 5, 0.04, 0.51); boner:= 'Bones'; end; //hobgoblins
+      'Cow': begin Monstercts:= CTS2(1193293, 7, 0.67, 5.76); boner:= 'Bones'; end; //cows (shitty)
+      'Goblin': begin monsterCTS:= CTS2(4630436, 4, 0.21, 0.24); boner:= 'Bones'; end; //goblins
+      'Frog': begin monstercts:= CTS2(871686, 7, 0.28, 2.64); boner:= 'Bones'; end; //frogs
+
+    end;
+
+
+  end;
+end;
+
+function isxpup: boolean;
+begin
+  rsclient.image.clear;
+  rsclient.image.DrawBox(xpbox, clwhite);
+  result:= srl.IsAnimating(xpbox, 200, 500, 4);
+end;
+
+function isattacking: boolean;
+begin
+  result:= srl.IsAnimating(mainscreen.GetPlayerBox, pshift, 500, 4);
+end;
+
+
+procedure burybones;
+begin
+  while (inventory.CountItem(boner) > 0) do
+  begin
+    inventory.ClickItem(boner);
+    writeln('burying');
+    wait(randomrange(200, 500));
+  end;
+end;
+
+function splatcheck(area: tbox): boolean;
+var
+  splats: TRSHitsplatArray;
+  timerr: tstopwatch;
+begin
+  timerr.start;
+  while (length(splats) = 0) and (timerr.elapsedtime < 3000) do
+    splats:= mainscreen.FindHitsplats(area);
+  if length(splats) = 0 then
+  begin
+    writeln('No hitplats detected');
+    result:= false;
+  end else
+    result:= true;
+
+  timer.reset;
+end;
+
+procedure grabstuff;
+var
+  hide, TPA: TPointArray;
+  ATPA: T2DPointArray;
+  curBones: integer;
+  timar: tstopwatch;
+begin
+  if inventory.IsFull then
+  begin
+    Writeln('inventory is full, burying bones');
+    burybones;
+  end;
+
+  if inventory.IsFull then
+    inventory.ClickItem(whatfood);
+
+  if srl.findcolors(TPA, CTS2(13092814, 12, 0.01, 0.10), mainscreen.bounds) then
+  begin
+    timar.Start;
+    {writeln('looking for hides...');
+    ATPA := TPA.Cluster(2);
+    writeln('clustering TPAs into ATPA');
+    ATPA.FilterSize(25, 300);
+    writeln('filtering ATPAs');
+    ATPA.SortByIndex(Mainscreen.Center);
+    writeln('finding matching ');}
+    rsclient.image.clear;
+    rsclient.image.drawtpa(tpa, clgreen);
+    atpa:= tpa.cluster(5);
+
+    atpa.sortbysize(10, true);
+    atpa.filtersize(5, 1500);
+    rsclient.image.drawatpa(atpa, [clyellow, clblack]);
+    mouse.move(atpa.Biggest.Bounds);
+    begin
+      curbones:= inventory.Count;
+      writeln('bones detected');
+      if mainscreen.IsUpText('Take') then
+      begin
+        mouse.click(mouse_right);
+        chooseoption.Select(coolstuff, mouse_left);
+        writeln('grabbing bones');
+
+        repeat
+          writeln('still grabbing ' + inttostr(timar.ElapsedTime));
+          wait(randomrange(100, 176));
+        until((inventory.Count > curbones) or (timar.ElapsedTime > 5000));
+      end;
+    end;
+  end;
+end;
+
+procedure attackcow;
+var
+  x, y, grab_attempts: integer;
+  cow, TPA: TPointArray;
+  ATPA: T2DPointArray;
+  antipoison: TRSItemArray;
+  timerr: tstopwatch;
+  HPBar: TRSHPBarArray;
+  splats: TRSHitsplatArray;
+  incombat: boolean;
+begin
+  if inventory.IsFull then
+  begin
+    writeln('inventory is full');
+    //dobank;
+    burybones;
+  end;
+
+  timerr.start;
+
+  antipoison:= ['Antipoison(1)', 'Antipoison(2)', 'Antipoison(3)', 'Antipoison(4)'];
+
+  writeln('looking for ' + whatmonster +'..');
+  if srl.findcolors(TPA, MonsterCTS, mainscreen.bounds) then
+  begin
+    rsclient.image.DrawTPA(TPA, clred);
+    ATPA := TPA.Cluster(3);
+    writeln('clustering TPAs into ATPA');
+    ATPA.FilterSize(5, 500);
+    writeln('filtering ATPAs');
+    ATPA.SortByIndex(Mainscreen.Center);
+    rsclient.image.DrawATPA(ATPA, [clgreen, clblue]);
+    writeln('finding matching TPAs');
+    timer.Start;
+    for cow in ATPA do
+    begin
+      if timer.ElapsedTime > 55000 then
+      begin
+        timer.Reset;
+        minimap.SetCompassAngle(randomrange(0, 359), 10);
+      end;
+
+      writeln('potential monster');
+      writeln(timer.elapsedtime);
+      mouse.move(cow[random(length(cow))]);
+      if mainscreen.IsUpText('Attack', 100) then
+      begin
+        mouse.click(mouse_left);
+        if mainscreen.DidRedClick then
+        begin
+          wait(randomrange(600, 1500));
+          if Chat.FindMessage('I can''t reach that!', [CHAT_COLOR_BLACK]) then
+          begin
+            writeln('Unreachable rat, adjusting angle and looking again');
+            Minimap.SetCompassAngle(Randomrange(1, 358), 10);
+          end else
+          begin
+            writeln('attacking');
+            repeat
+
+              if minimap.IsPlayerMoving then
+                while minimap.IsPlayerMoving do
+                  wait(31);
+
+
+
+
+
+              rsclient.image.DrawBox(box(mainscreen.Bounds.Middle, 120, 120), clyellow);
+              hpbar:= mainscreen.FindHPBars(box(mainscreen.Bounds.Middle, 120, 120));
+              writeln(hpbar);
+
+              if (length(hpbar) > 0) or splatcheck(mainscreen.Bounds) then
+              begin
+                writeln('we are in combat');
+                incombat:= true;
+              end else
+              begin
+                writeln('we are not in combat');
+                incombat:= false;
+              end;
+
+              if (minimap.GetHPpercent <= 50) and inventory.FindItem(whatfood) then
+              begin
+                writeln('Low health; Eating..');
+                while minimap.GetHPPercent < 90 do
+                  inventory.ClickItem(WhatFood);
+              end;
+
+              if minimap.IsPoisoned and inventory.finditems(antipoison) then
+              begin
+                inventory.ClickItem(antipoison[low(antipoison)]);
+              end;
+
+              if (rsw.GetMyPos.DistanceTo(startpoint) > maxdist) and (incombat = false) then
+                rsw.WalkBlind(startpoint, 3);
+
+
+              writeln('still attacking');
+              wait(randomrange(12, 15));
+              rsclient.image.clear;
+              rsclient.image.DrawBox(box(mainscreen.Center, 20, 30), clred);
+              rsclient.Image.DrawText(inttostr(srl.GetPixelShift(mainscreen.GetPlayerBox, 200)), [50, 50], clblue);
+              //rsclient.Image.DrawText(booltostr(srl.IsAnimating(mainscreen.GetPlayerBox, 30, 200, 2)), [50, 75], clblue);
+            until(((splatcheck(mainscreen.Bounds) = false) and (isattacking = false) and (isxpup = false)) or (incombat = false) or (timerr.elapsedtime > 90000));
+            timer.Reset;
+            begin
+              writeln(whatmonster + 'is dead, grabbing stuff');
+              grab_attempts:= 0;
+              repeat
+                grabstuff;
+                grab_attempts:= grab_attempts + 1;
+              until(grab_attempts = maxgrabattempts);
+            end;
+          end;
+        end;
+      end;
+    end else
+    begin
+      case random(70) of
+        0: minimap.SetCompassAngle(randomrange(0, 359), 10);
+        1..68: writeln('not changing compass angle');
+        69: rsw.WalkBlind([startpoint.X+5, startpoint.y+5], 2);
+      end;
+    end;
+  end;
+end;
+
+begin
+  cleardebug;
+  rsclient.image.Clear;
+  setup;
+  repeat
+    {if not rsclient.IsLoggedIn then
+    begin
+      declareplayer;
+      writeln('logging in...');
+      login.LoginPlayer;
+      Writeln('You aren''t logged in');
+      exit;
+    end else }
+
+
+    begin
+      repeat
+        writeln(srl.MsToTime(gettimerunning, time_short));
+        rsclient.image.clear;
+        rsclient.Image.DrawText(srl.MsToTime(gettimerunning, time_short), [550, 440], claqua);
+        attackcow;
+      until(not(rsclient.IsLoggedIn));
+    end;
+  until((gettimerunning >= 14400000) and (rsclient.IsLoggedIn = false));
+end.

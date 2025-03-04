@@ -1,0 +1,90 @@
+program firemaker;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+const
+  whatlog = 'Maple logs';
+
+var
+  walkit: trswalker;
+  firepos: tpointarray:= [[4513, 2420], [4513, 2422], [4513, 2424], [4513, 2426], [4513, 2432], [4513, 2428], [4513, 2436], [4513, 2438], [4513, 2440]];
+
+function walkto(spot: string): boolean;
+begin
+  case spot of
+    'bank': result:= walkit.WalkBlind([4476, 2487], 2);
+    'fire': result:= walkit.WalkBlind(firepos[random(length(firepos))], 5);
+  end;
+end;
+
+procedure lightlogs;
+var
+  startpos: tpoint;
+begin
+  if inventory.FindItems(['Tinderbox', whatlog]) then
+  begin
+    startpos:= walkit.GetMyPos;
+    writeln('we have logs & tinderbox');
+    inventory.use('Tinderbox', whatlog);
+
+    while (walkit.GetMyPos = startpos) do
+    begin
+      wait(231);
+      if (chat.GetMessage(7) = 'You can''t light a fire here.') then
+      begin
+        walkit.WalkBlind(firepos[random(length(firepos))]);
+        exit;
+      end;
+    end;
+
+
+    wait(200); //time for logs to light
+  end else
+  begin
+    writeln('out of logs. Banking.');
+  end;
+end;
+
+procedure printpos;
+begin
+  writeln(walkit.GetMyPos);
+end;
+
+function detectfire:boolean;
+begin
+  //checks for fire in playerbox
+end;
+
+begin
+  walkit.Setup('world');
+  walkit.ScreenWalk:= true;
+  writeln(chat.GetMessage(7));
+  while rsclient.IsLoggedIn do
+  begin
+    if not inventory.finditem(whatlog) then
+    begin
+      writeln('Out of logs!');
+      if walkto('bank') then
+        if bank.open(ersbanklocation.GRAND_EXCHANGE) then
+          if bank.WithdrawItem([whatlog, -1, false], false) then
+            if bank.close then
+              writeln('banking complete');
+    end else
+    begin
+      if inventory.FindItem(whatlog) then
+      begin
+        if walkto('fire') then
+          while inventory.FindItem(whatlog) do
+          begin
+            lightlogs;
+            if not inventory.finditem(whatlog) then
+              if walkto('bank') then
+                if bank.open(ersbanklocation.GRAND_EXCHANGE) then
+                  if bank.WithdrawItem([whatlog, -1, false], false) then
+                    if bank.close then
+                      writeln('restocking complete');
+          end;
+      end;
+    end;
+  end;
+end.

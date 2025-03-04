@@ -1,0 +1,224 @@
+program hillgiantmulticannon;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+//uses multicannon at giants foundry hill giants
+//safespots giants, reloads & repairs cannon
+
+//start at giants foundry hill giants
+//have cannon, cannonballs, and food in inventory
+
+{ locations:
+Giants Foundry
+}
+const
+  location = 'Giants Foundry';
+
+var
+  cannonbox: tbox;
+  walkit: TRSWalker;
+  cannonballs: integer;
+  timerr: tstopwatch;
+  safety, cannon_spot: TPoint;
+
+procedure setupp;
+begin
+  srl.Setup;
+  walkit.Setup('world');
+  walkit.ScreenWalk:= true;
+  minimap.SetCompassAngle(0, 2);
+  cannonbox:= box([359, 214], 15, 20);
+  options.SetZoomLevel(0);
+  combat.SetAutoRetaliate(false);
+
+  case location of
+
+    'Giants Foundry':
+      begin
+        Safety:= [5281, 3843];
+        Cannon_spot:= [5309, 3855];
+      end;
+
+      //add more later
+
+  end;
+
+end;
+
+function IsCannonMoving: Boolean;
+begin
+  rsclient.image.DrawBox(cannonbox, clblue);
+  result:= (srl.GetPixelShift(cannonbox, 1000) > 250);
+end;
+
+function findcannonballs: boolean;
+begin
+  if inventory.FindItem('Cannonball') then
+  begin
+    cannonballs:= inventory.CountItemStack('Cannonball');
+    result:= true;
+  end;
+end;
+
+function getlinezero: string;
+begin
+  rsclient.image.DrawBox(chat.GetLineBoxes[7], clblue);
+  result:= chat.GetMessage(7);
+end;
+
+function walktosafety:boolean;
+begin
+  while (distance(walkit.GetMyPos, safety) > 1) do
+  begin
+    writeln('walking to safespot');
+    walkit.WalkBlind(safety, 1);
+  end;
+end;
+
+function pickupcannon: boolean;
+var
+  x, y: integer;
+begin
+  if findcolorspiraltolerance(x, y, 7498603, mainscreen.X1, mainscreen.Y1, mainscreen.x2, mainscreen.Y2, 0) then
+  begin
+    mouse.move(x, y);
+    if mainscreen.IsUpText('Fire') then
+    begin
+      mouse.click(mouse_right);
+      if chooseoption.IsOpen then
+      begin
+        writeln('out of cannonballs. picking up cannon.');
+        chooseoption.Select('Pick-up', mouse_left, false, true);
+        while not inventory.FindItem('Cannon base') do
+          wait(31);
+        walktosafety;
+        combat.SetAutoRetaliate(true);
+        result:= true;
+        logout.ClickLogout(2);
+      end;
+    end;
+  end;
+end;
+
+function setupcannon: boolean;
+var
+  x, y: integer;
+begin
+  //if detect cannon in inventory, set it up at specified spot
+  //return true once cannon set up
+
+  //cannon spot: [5309, 3855]
+
+  if inventory.finditem('Cannon base') then
+  begin
+
+    while (distance(walkit.GetMyPos, cannon_spot) > 0) do
+      walkit.WalkBlind(cannon_spot, 0);
+
+    inventory.ClickItem('Cannon base', 'Set-up');
+
+    if not (getlinezero = 'You add the furnace.') then
+    begin
+      repeat
+        wait(31);
+      until(getlinezero = 'You add the furnace.');
+    end;
+
+    if (getlinezero = 'You add the furnace.') then
+    begin
+      writeln('cannon set up');
+
+      if findcolorspiraltolerance(x, y, 7498603, mainscreen.X1, mainscreen.Y1, mainscreen.x2, mainscreen.Y2, 0) then
+      begin
+        mouse.move(x, y);
+
+        if mainscreen.IsUpText('Fire') then
+        begin
+          mouse.click(mouse_left);
+
+          if mainscreen.didredclick then
+          begin
+            writeln('cannon firing');
+            walktosafety;
+            combat.SetAutoRetaliate(true);
+            result:= true;
+          end;
+        end;
+      end;
+    end;
+  end;
+end;
+
+function reloadcannon: boolean;
+begin
+  if (iscannonmoving = false) and (chat.GetMessage(7) = 'Your cannon is out of ammo!') then
+  begin
+    writeln('out of ammo');
+    combat.SetAutoRetaliate(false);
+    mouse.move(cannonbox, true);
+    if mainscreen.IsUpText('Fire') then
+    begin
+      mouse.click(cannonbox, mouse_left);
+      if mainscreen.didredclick then
+      begin
+        while (chat.GetMessage(7) = 'Your cannon is out of ammo!') do
+          wait(31);
+
+        if (chat.GetMessage(7) = 'You load the cannon with 30 cannonballs.') then
+        begin
+          wait(randomrange(150, 300));
+          walktosafety;
+          combat.SetAutoRetaliate(true);
+          result:= true;
+        end;
+      end;
+    end;
+  end else
+  if getlinezero = 'Your cannon has broken!' then
+  begin
+    writeln('cannon is broken');
+    combat.SetAutoRetaliate(false);
+    mouse.move(cannonbox, true);
+    if mainscreen.IsUpText('Repair') then
+    begin
+      mouse.click(cannonbox, mouse_left);
+      if mainscreen.didredclick then
+      begin
+        while (chat.GetMessage(7) = 'Your cannon has broken!') do
+          wait(31);
+
+        if (chat.GetMessage(7) = 'You repair your cannon, restoring it to working order.') then
+        begin
+          wait(randomrange(150, 300));
+          walktosafety;
+          combat.SetAutoRetaliate(true);
+          result:= true;
+        end;
+      end;
+    end;
+  end;
+end;
+
+
+begin
+  setupp;
+  setupcannon;
+  repeat
+    //iscannonmoving;
+    rsclient.image.clear;
+    rsclient.image.DrawText('current pos: ' + tostr(walkit.GetMyPos), [10, 10], clteal);
+    cannonballs:= inventory.CountItemStack('Cannonball');
+    rsclient.image.DrawText('cannonballs: ' + tostr(cannonballs), [10, 30], clteal);
+    wait(randomrange(75, 120));
+    if (getlinezero = 'Your cannon is out of ammo!') then
+      reloadcannon;
+      cannonballs:= inventory.CountItemStack('Cannonball');
+    if (getlinezero = 'Your cannon has broken!') then
+    begin
+      reloadcannon;
+      cannonballs:= inventory.CountItemStack('Cannonball');
+    end;
+    if (getlinezero = 'Your cannon is out of ammo.') or (inventory.FindItem('Cannonball') = false) then
+      pickupcannon;
+  until(not(rsclient.IsLoggedIn));
+end.

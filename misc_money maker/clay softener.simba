@@ -1,0 +1,131 @@
+program claysoftener;
+{$define srl_use_remoteinput}
+{$i srl/osr.simba}
+{
+start with no inventory in varrock west bank
+pulls a bucket & clay out of bank, walks to fountain, makes soft clay }
+
+var
+  walkit: trswalker;
+  globaltimer: ttimer;
+  buckett, clayy, pale: TRSBankWithdrawItem;
+
+procedure markstatus(status: string);
+begin
+  rsclient.image.Clear();
+  writeln(status);
+  rsclient.Image.DrawText(status, [10, 10], clMoneyGreen);
+end;
+
+function walktofountain: boolean;
+begin
+  markstatus('walking to fountain');
+  result:= walkit.walkblind([4765, 2716], 2);
+end;
+
+function walktobank: boolean;
+begin
+  markstatus('walking to bank');
+  result:= walkit.WalkBlind([4825, 2768], 1);
+end;
+
+procedure dobank;
+var
+  bankertpa: Tpointarray;
+begin
+  walktobank;
+  markstatus('banking');
+  //case random(2) of
+    {0:} begin
+         rsclient.image.DrawBox(box(120, 170, 353, 275), clblue);
+         if findcolors(bankertpa, 5255741, box(120, 170, 353, 275)) then
+         begin
+           bank.open(bankertpa[random(length(bankertpa))]);
+           bank.DepositAll;
+           wait(randomrange(10, 50));
+           bank.WithdrawItem(buckett, false);
+           wait(randomrange(10, 50));
+           bank.WithdrawItem(clayy, true);
+           wait(randomrange(10, 50));
+           if (inventory.CountItem(buckett.Item) = 1) and (inventory.CountItem(clayy.Item) = 27) then
+           begin
+             markstatus('finished banking');
+             bank.close;
+             walktofountain;
+           end;
+         end;
+       end;
+  //end;
+end;
+
+procedure wetclay;
+var
+  waterr: tpointarray;
+begin
+  while inventory.FindItem(clayy.Item) do
+  begin
+
+    markstatus('wetting the clay');
+    if findcolors(waterr, 10516579, box(143, 88, 299, 194)) then
+    begin
+      inventory.HoverItem(buckett.Item);
+      if mainscreen.IsUpText('Use Bucket', 50) then
+      begin
+        markstatus('clicked bucket');
+        mouse.click(mouse_left);
+        markstatus('filling bucket');
+        mouse.Click(waterr[random(length(waterr))], mouse_left);
+        wait(randomrange(500, 900));
+        if inventory.FindItem(pale.item) then
+        begin
+          inventory.Use(pale.item, clayy.Item);
+          wait(randomrange(500, 900));
+
+        end;
+      end;
+    end;
+  end;
+  if (inventory.FindItem(clayy.Item) = false) then
+  begin
+    markstatus('finished inventory, banking...');
+    dobank;
+  end;
+end;
+
+procedure wrapitup;
+//wrap it up. bank, log out.
+begin
+end;
+
+procedure setupp;
+begin
+  markstatus('setting up');
+  walkit.Setup('world');
+  options.SetZoomLevel(randomrange(45, 55));
+  mainscreen.SetHighestPitch;
+  buckett.Item:= 'Bucket';
+  buckett.Noted:= false;
+  buckett.Quantity:= 1;
+  clayy.item:= 'Clay';
+  clayy.noted:= false;
+  clayy.quantity:= 1000;
+  pale.item:= 'Bucket of water';
+  dobank;
+  markstatus('setup complete, wetting clay..');
+end;
+
+begin
+  setupp;
+  repeat
+    wetclay;
+  until(not(rsclient.IsLoggedIn) or (gettimerunning > 20600000));
+
+  if (gettimerunning > 20600000) and (rsclient.IsLoggedIn) then
+  begin
+    markstatus('wrapping up and logging out.');
+    //log out
+  end else
+  begin
+    markstatus('we are logged out; terminating script.');
+  end;
+end.

@@ -1,0 +1,109 @@
+program AmuletEnchanter; //enchants amulets at lumbridge bank
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+const
+  WhatAmulet = 'Topaz';
+
+
+
+Type
+  TRSEnchantMode = (lvl1, lvl2, lvl3, lvl4, lvl5, lvl6, lvl7);
+
+  TScript = record
+    currentrunes, totalamuletsenchanted, currentenchantedamulets, : int32;
+    lvl1DTM, lvl2DTM, lvl3DTM, lvl4DTM, lvl5DTM, lvl6DTM, lvl7DTM: integer;
+    mode: TRSEnchantMode;
+
+
+procedure TScript.setup;
+begin
+  srl.setup;
+
+  tscript.lvl3DTM:= DTMFromString('mwQAAAHicjcZNCkBQAADheayU20hIWVN+c2/HsbAySpZ6U19NBkwJzFq1a9OiUYN6NQEKlarVqns9X+lI4TrzXzGFCF83gDUVnA==');
+end;
+
+function tscript.hasitems: boolean;
+begin
+  result:= inventory.FindItems(
+end;
+
+function TScript.countenchantedamulets: integer;
+begin
+
+end;
+
+procedure TScript.withdrawamulets;
+begin
+
+end;
+
+procedure TScript.depositamulets;
+begin
+
+end;
+
+procedure TScript.Caster(spell_DTM: integer;);
+begin
+
+end;
+
+procedure TScript.enchantamulets(amulet: string);
+begin
+  case amulet of
+    'Opal':
+
+
+
+
+    'Sapphire':
+
+
+
+
+    'Jade':
+
+
+
+
+    'Emerald':
+
+
+
+
+    'Topaz':
+
+
+
+
+    'Ruby':
+
+
+
+
+    'Diamond':
+
+
+
+
+    'Dragonstone':
+
+
+
+
+    'Onyx':
+
+
+
+
+    'Zenyte':
+
+
+
+
+  end;
+end;
+
+
+begin
+end.

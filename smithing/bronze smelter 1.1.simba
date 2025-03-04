@@ -1,0 +1,99 @@
+program smelting;
+{$i srl/osr.simba}
+
+var
+  bankmmdtm, furnacemmdtm: integer;
+
+  {USE minimap.IsPlayerMoving(x) WHILE WALKING TO AND FROM FURNACE}
+
+procedure walktofurnace;
+var
+  x, y: integer;
+begin
+  furnacemmdtm:= DTMFromString('maQEAAHicE2RgYKjgZGCoA+JqIK7ihPDLgbgMiguBuBiIi6D8SqjaWqi+GiA+ADRnDwOE3gfEO6F8GHs/EB8F4oNQ+ggQH4PSh4B4FxC/efMGSDIyhNrqMvwrlgOz7e1t4WwY3r//ABgvWDAfzAfRID5EnnLASAWMAQDPsCdO');
+  if finddtm(furnacemmdtm, x, y, minimap.Bounds) then
+  begin
+    writeln('walking to furnace');
+    mouse.click(x, y, mouse_left);
+    writeln('walking..');
+    wait(randomrange(5000, 1000));
+  end;
+end;
+
+procedure walktobank;
+var
+  x, y: integer;
+begin
+  bankmmdtm:= DTMFromString('mFQEAAHicnctbCkBQEIDhUXKLhC15tA87sCB78HxswRZICNmC/+iUziNT3zTXRETiUCRDigQRAvjwTK/n+i5HgZW/yRgNXc9YcODEhR0b1qEiO9K15UOp3qL3Te0+N6/v4fxgxQ0cRB4K');
+  if finddtm(bankmmdtm, x, y, minimap.Bounds) then
+  begin
+    mouse.click(x, y, mouse_left);
+    wait(randomrange(12000, 14000));
+  end;
+end;
+
+procedure findbanker;
+var
+  x, y: integer;
+begin
+  if findcolortolerance(x, y, 7638682, mainscreen.Bounds, 5) then
+  begin
+    mouse.click(x, y, mouse_right);
+    if chooseoption.IsOpen() then
+    begin
+      chooseoption.Select(['bank', 'banker'], mouse_left, false, true);
+      wait(randomrange(1500, 2200));
+      inventory.ClickSlot(randomrange(0, 13));
+    end;
+  end;
+end;
+
+
+procedure clickFurnace;
+var
+  x, y: integer;
+  furnace, TPA: TPointArray;
+  ATPA: T2DPointArray;
+begin
+  writeln('looking for furnace...');
+  if srl.FindColors(TPA, CTS2(3953524, 1, 0.36, 0.75), mainscreen.Bounds) > 0 then
+  begin
+    writeln('');
+    ATPA:= TPA.Cluster(2);
+    ATPA.FilterSize(10, 800);
+    ATPA.SortByIndex(mainscreen.Center);
+    for furnace in ATPA do
+    begin
+      mouse.move(furnace[random(length(furnace))]);
+      wait(randomrange(200, 500));
+      if mainscreen.IsUpText('Smelt', 17) then
+      begin
+        writeln('found furnace');
+        writeln('smelting bronze bars..');
+        mouse.Click(mouse_left);
+        if mainscreen.DidRedClick then
+        begin
+          wait(400);
+          mouse.click(41, 425, mouse_left);
+          repeat
+            wait(randomrange(500, 1000));
+          until(not(srl.IsAnimating(box(254, 155, 275, 178), 300, 1000, 3)));
+          break;
+        end;
+      end;
+    end;
+  end
+end;
+
+
+procedure makeBars;
+begin
+
+end;
+
+begin
+  walktofurnace;
+  clickfurnace;
+  walktobank;
+  findbanker;
+end.

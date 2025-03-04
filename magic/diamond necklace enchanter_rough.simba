@@ -1,0 +1,91 @@
+program diamond_necklace_enchanter; //to eventually include alching
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+{
+ start with runes at GE bank with diamond necklaces in invy
+ open magic tab
+ select lvl 4 enchant
+ click diamond necklace
+ click back to inventory
+ wait until finditem(diamondnecklace) = false
+ open bank
+ deposit necklaces
+ withdraw
+ close bank
+ repeat
+ }
+
+const
+  necklace = 'Diamond Necklace';
+
+procedure withdrawnecklaces;
+begin
+  //find, withdraw, close bank
+end;
+
+procedure depositnecklaces;
+begin
+  //find bank, open, deposit
+  if (inventory.IsFull = true) and (inventory.FindItem(necklace) = false) then
+  begin
+    bank.open(ERSBankLocation.GRAND_EXCHANGE);
+    wait(randomrange(21, 700));
+  end;
+
+  if bank.IsOpen then
+  begin
+    bank.DepositItem(['Phoenix Necklace', -1], false);
+    wait(randomrange(21, 700));
+  end;
+
+  if not inventory.isfull then
+  begin
+    bank.WithdrawItem([necklace, -1, false], false);
+    wait(randomrange(21, 700));
+  end;
+
+  if inventory.FindItem(necklace) then
+  begin
+    bank.close;
+    wait(randomrange(21, 700));
+  end;
+end;
+
+procedure enchant;  //need to add xp gain detection, maybe a timeout
+begin
+  if inventory.FindItem(necklace) then
+  begin
+    magic.CastSpell(ERSSpell.lvl4_enchant);
+    repeat
+      wait(randomrange(21, 1001));
+    until(inventory.IsOpen = true);
+
+    if inventory.FindItem(necklace) then
+    begin
+      inventory.ClickItem(necklace);
+      repeat
+        wait(randomrange(21, 1001));
+        writeln(xpbar.read);
+      until(inventory.finditem(necklace) = false);
+    end;
+  end else
+  if not inventory.FindItem(necklace) then
+  begin
+    depositnecklaces;
+  end;
+end;
+
+
+procedure setupp;
+begin
+  srl.Setup;
+end;
+
+
+begin
+  setupp;
+  repeat
+    enchant;
+  until(not(rsclient.IsLoggedIn));
+end.

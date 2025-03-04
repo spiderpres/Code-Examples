@@ -1,0 +1,138 @@
+program opalbraceletenchanter;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+var
+  spelldtm, spellx, spelly, bracelets: integer;
+  opalbracelet: TRSBankWithdrawItem;
+  bankcolor: tcts2color;
+
+
+function ClickChest: boolean;
+var
+  TPA: TPointArray;
+  timerr: tstopwatch;
+begin
+  timerr.start;
+  if srl.FindColors(TPA, bankcolor, mainscreen.Bounds) then
+  begin
+    mouse.move(TPA.Bounds.Middle);
+    if mainscreen.IsUpText('Bank') or mainscreen.IsUpText('Cast') then
+    begin
+      mouse.click(mouse_left);
+      mouse.click(mouse_left);
+      if mainscreen.DidRedClick then
+      begin
+        wait(randomrange(500, 1000));
+        result:= bank.IsOpen;
+      end;
+    end;
+  end;
+end;
+
+function findspell: boolean;
+var
+  x, y: integer;
+begin
+  if finddtm(spelldtm, spellx, spelly, inventory.bounds) then
+  begin
+    mouse.Move(spellx, spelly);
+    wait(50);
+  end;
+
+
+  result:= mainscreen.IsUpText('Cast Lvl-1', 100);
+end;
+
+function bankstuff: boolean;
+begin
+  if not bank.isopen then
+    clickchest;
+
+  if bank.IsOpen and (inventory.CountItem('Expeditious bracelet') = 27) then
+  begin
+    inventory.ClickItem('Expeditious bracelet');
+    wait(randomrange(500, 1500));
+  end;
+
+  if bank.FindItem(opalbracelet.Item) then
+  begin
+    bank.WithdrawItem(opalbracelet, true);
+    wait(randomrange(500, 1500));
+  end;
+
+  if inventory.CountItem(opalbracelet.Item) = 27 then
+  begin
+    bank.close;
+    wait(randomrange(500, 1500));
+  end;
+
+  result:= inventory.FindItem(opalbracelet.Item);
+end;
+
+procedure setupp;
+begin
+  srl.setup;
+
+  opalbracelet.Item:= 'Opal bracelet';
+  opalbracelet.Noted:= false;
+  opalbracelet.Quantity:= 27;
+  bankcolor:= CTS2(1055079, 2, 0.22, 1.26);
+
+  spellDTM:= DTMFromString('mrAAAAHic42BgYNjKxMCwE4h3A/EOIN4MxBuheAsQ3wKqucYAoe9B8XUgvgPEV4BYges4w69vPDgxIcBIAMMAANcjG20=');
+end;
+
+procedure run;
+var
+  timerr: tstopwatch;
+begin
+  repeat
+
+    if not gametabs.open(ersgametab.MAGIC) then
+      gametabs.open(ersgametab.MAGIC);
+
+    if findspell then
+    begin
+      mouse.click(mouse_left);
+      wait(randomrange(100, 250));
+    end;
+
+    timerr.Start;
+
+    while (gametabs.GetCurrentTab = ersgametab.MAGIC) and (timerr.ElapsedTime < 3000) do
+      wait(11);
+
+    if inventory.FindItem(opalbracelet.Item) and mainscreen.IsUpText('Cast') then
+    begin
+      bracelets:= inventory.Countitem('Expeditious bracelet');
+      inventory.ClickItem(opalbracelet.Item);
+      wait(randomrange(50, 150));
+      mouse.move(spellx, spelly);
+      wait(randomrange(50, 150));
+    end else
+    if not inventory.FindItem(opalbracelet.Item) then
+      bankstuff;
+
+    wait(randomrange(800, 1200));
+
+    {while (gametabs.GetCurrentTab = ersgametab.INVENTORY) do
+      wait(randomrange(75, 300));}
+
+    writeln(bracelets);
+
+  until(bracelets = 25);
+end;
+
+procedure freedtms;
+begin
+  freedtm(spelldtm);
+end;
+
+begin
+  setupp;
+  addonterminate('freedtms');
+  repeat
+    run;
+    writeln(inventory.countitem(opalbracelet.Item));
+  until(not(rsclient.IsLoggedIn));
+end.

@@ -1,0 +1,180 @@
+program catherbykarambwan;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i wasplib/osr.simba}
+{$i srl-p/osr.simba}
+
+var
+  walkit: trswalker;
+  stovepos, bankpos, bankerpos, stoverpos: tpoint;
+  wkaram: trsbankwithdrawitem;
+  slotss: tintegerarray;
+  cookedfish: integer;
+
+procedure setupp;
+begin
+  bankpos:= [6628, 2684];  //walker coords
+  stovepos:= [6664, 2676]; //walker coords
+  bankerpos:= [6628, 2680];//walker coords (for mainscreen clicking)
+  stoverpos:= [6664, 2672];//walker coords (for mainscreen clicking)
+
+  wkaram.Item:= 'Raw karambwan';
+  wkaram.Noted:= false;
+  wkaram.Quantity:= -1;
+
+  srl.Setup;
+  mouse.Speed:= 15;
+  //options.SetZoomLevel(100);
+  minimap.SetCompassAngle(randomrange(87, 93));
+  mainscreen.SetHighestPitch;
+  walkit.Setup('World');
+  walkit.ScreenWalk:= false;
+  walkit.ClickRandomness:= 0;
+  walkit.NearZoomMode:= true;
+end;
+
+function walkto(loc: string):boolean;
+begin
+  case loc of
+    'bank': result:= walkit.walkblind(bankpos);
+    'stove': result:= walkit.walkblind(stovepos);
+  end;
+end;
+
+function dobank: boolean;
+var
+  bankerbox: trectangle;
+  tmpbox: tbox;
+begin
+  rsclient.image.clear;
+  rsclient.image.Drawrect(minimap.pointToMsRect([642, 84]), clteal);
+  if not inventory.FindItem(wkaram.Item, slotss) then
+    if walkto('bank') then
+    begin
+      minimap.SetCompassAngle(randomrange(87, 93), 5);
+      bankerbox:= minimap.pointToMsRect(walkit.WorldToMM(bankerpos));
+      writeln('We are at bank');
+      rsclient.image.clear;
+      rsclient.image.Drawrect(minimap.pointToMsRect(walkit.WorldToMM(bankerpos)), clblue);
+      mouse.move(bankerbox);
+      if mainscreen.IsUpText('Bank') then
+      begin
+        writeln('bank booth found!');
+        mouse.click(mouse_left);
+        if mainscreen.DidRedClick then
+          while not bank.isopen do
+            wait(31);
+
+        if bank.IsOpen then
+        begin
+          rsclient.image.clear;
+          bank.DepositAll;
+          if bank.FindItem(wkaram.Item, tmpbox) then
+          begin
+            if bank.WithdrawItem(wkaram, true) then
+
+            begin
+              wait(500);
+
+              if inventory.FindItem(wkaram.Item, slotss) then
+                writeln('karambwan withdrawn');
+
+              if bank.close then
+                if walkto('stove') then
+                  exit;
+
+            end else
+            begin
+              terminatescript('something went wrong');
+            end;
+          end else
+            terminatescript('Out of supplies');
+        end;
+      end;
+    end;
+    lineprinter(['Time running: ' + tostr(srl.TimeRunning), 'fish cooked: ' + tostr(cookedfish)]);
+end;
+
+function cookone: boolean;  //uses raw karam on stove, checks for xpup
+var
+  stovebox: trectangle;
+  rawcount: integer;
+  timerr: tstopwatch;
+begin
+  stovebox:= minimap.pointToMsRect(walkit.WorldToMM(stoverpos));
+  rsclient.image.clear;
+  rsclient.image.drawrect(stovebox, clgreen);
+  rawcount:= inventory.CountItem(wkaram.Item);
+  minimap.SetCompassAngle(randomrange(87, 93), 5);
+
+  {if walkto('stove') then
+    writeln('we are at stove'); }
+
+  if inventory.FindItem(wkaram.Item, slotss) then
+  begin
+    timerr.Start;
+    inventory.Clickslot(slotss[high(slotss)]);
+    wait(31);
+    mouse.move(stovebox);
+  end;
+
+  if mainscreen.IsUpText('Use Raw karambwan -> Range') then
+    mouse.click(mouse_left);
+
+  if mainscreen.DidRedClick then
+    while (make.IsOpen = false) and (timerr.ElapsedTime < 3000) do
+    begin
+      wait(31);
+    end;
+
+  if make.IsOpen then
+  begin
+    writeln('Make screen is open');
+    keyboard.presskey(vk_space);
+    if inventory.finditem(wkaram.item, slotss) then
+    begin
+      inventory.Hoverslot(slotss[high(slotss)]);
+    end;
+  end;
+
+  while (inventory.CountItem(wkaram.Item) = rawcount) and (timerr.elapsedtime < 3000) do
+  begin
+    result:= false;
+    wait(31);
+  end;
+
+  if inventory.CountItem(wkaram.Item) < rawcount then
+  begin
+    timerr.Reset;
+    result:= true;
+  end;
+  lineprinter(['Time running: ' + tostr(srl.TimeRunning), 'fish cooked: ' + tostr(cookedfish)]);
+end;
+
+procedure run;
+begin
+  if not inventory.FindItem(wkaram.Item) then
+  begin
+    writeln('banking');
+    dobank;
+  end;
+
+  while inventory.FindItem(wkaram.Item) do
+  if cookone then
+  begin
+    cookedfish:= cookedfish + 1;
+    writeln('Fish cooked: ' + tostr(cookedfish));
+  end;
+
+  lineprinter(['Time running: ' + tostr(srl.TimeRunning), 'fish cooked: ' + tostr(cookedfish)]);
+end;
+
+begin
+  setupp;
+  while rsclient.IsLoggedIn do
+  begin
+    run;
+    //options.SetZoomLevel(50);
+    //rsclient.image.Drawrect(minimap.pointToMsRect(walkit.WorldToMM(bankerpos)), clblue);
+    //drawpos(walkit);
+  end;
+end.

@@ -1,0 +1,199 @@
+program BetterCowKiller;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+var
+  timer: TStopwatch;
+  RSW: TRSWalker;
+
+                                {
+                                  -seek and destroy cows, switch attack styles
+
+                                    -run away from fight when low on health
+
+                                      -pick up and bury bones, run back if death
+
+                                        -add cowhide collection & banking
+
+                                          -add bone counter, cows killed counter
+                                                                                    }
+
+
+//burys bones.
+procedure burybones;
+begin
+  while (inventory.CountItem('bones') > 0) and (inventory.CountItem('Cowhide') < 28) do
+  begin
+    inventory.ClickItem('Bones');
+    writeln('burying');
+  end else
+  begin
+     //bankhides;
+     writeln('not banking at this time');
+  end;
+end;
+
+//searches mainscreen for bones, grabs them.
+procedure grabbones;
+var
+  hide, TPA: TPointArray;
+  ATPA: T2DPointArray;
+  curBones: integer;
+  timar: tstopwatch;
+begin
+  if inventory.IsFull then
+  begin
+    Writeln('inventory is full, burying bones');
+    burybones;
+  end;
+
+  if srl.findcolors(TPA, CTS2(12303300, 4, 0.31, 0.15), mainscreen.bounds) then
+  begin
+    timar.Start;
+    writeln('looking for hides...');
+    ATPA := TPA.Cluster(2);
+    writeln('clustering TPAs into ATPA');
+    ATPA.FilterSize(25, 300);
+    writeln('filtering ATPAs');
+    ATPA.SortByIndex(Mainscreen.Center);
+    writeln('finding matching TPAs');
+    rsclient.image.clear;
+    rsclient.image.drawatpa(atpa);
+    for hide in ATPA do
+    begin
+      curbones:= inventory.CountItem('Bones');
+      writeln('hides detected');
+      mouse.move(hide[random(length(hide))]);
+      if mainscreen.IsUpText('Take', 50) then
+      begin
+        mouse.click(mouse_right);
+        chooseoption.Select('Take Bones', mouse_left);
+        writeln('grabbing bones');
+        mouse.move(hide[random(length(hide))]);
+        //writeln('grabbing hide');
+        //mouse.click(mouse_right);
+        //chooseoption.select('Take Cowhide', mouse_left);
+
+        repeat
+          writeln('still grabbing ' + inttostr(timar.ElapsedTime));
+          wait(randomrange(100, 176));
+        until((inventory.CountItem('Bones') > curbones) or (timar.ElapsedTime > randomrange(3000, 5000)));
+        exit;
+      end;
+    end;
+  end;
+end;
+
+//randomly switches attack styles, usually opting not to.
+procedure styleswitcher;
+begin
+
+  case random(6000) of
+
+          0: begin combat.SetCombatStyle('Block'); end;
+          1: begin combat.SetCombatStyle('Slash'); end;
+          2: begin combat.SetCombatStyle('Stab');  end;
+          3: begin combat.SetCombatStyle('Lunge'); end;
+    4..6000: begin writeln('not changing styles'); end;
+
+  end;
+end;
+
+//finds and kills cows, collects bones & burys once inventory is full.
+procedure attackcow;
+var
+  x, y: integer;
+  cow, TPA: TPointArray;
+  ATPA: T2DPointArray;
+begin
+  if inventory.IsFull then
+  begin
+    writeln('inventory is full');
+    //dobank;
+    burybones;
+  end;
+
+  writeln('looking for cows..');
+  if srl.findcolors(TPA, CTS2(5532027, 17, 0.22, 0.58), mainscreen.bounds) then
+  begin
+    ATPA := TPA.Cluster(5);
+    writeln('clustering TPAs into ATPA');
+    ATPA.FilterSize(50, 1000);
+    writeln('filtering ATPAs');
+    ATPA.SortByIndex(Mainscreen.Center);
+    writeln('finding matching TPAs');
+    timer.Start;
+    styleswitcher;
+    for cow in ATPA do
+    begin
+      if timer.ElapsedTime > 5000 then
+      begin
+        timer.Reset;
+        minimap.SetCompassAngle(randomrange(0, 359), 10);
+      end;
+
+      writeln('potential cow!');
+      writeln(timer.elapsedtime);
+      mouse.move(cow[random(length(cow))]);
+      if mainscreen.IsUpText('Attack Cow', 50) then
+      begin
+        mouse.click(mouse_left);
+        if mainscreen.DidRedClick then
+        begin
+          wait(randomrange(600, 1500));
+          if Chat.FindMessage('I can''t reach that!', [CHAT_COLOR_BLACK]) then
+          begin
+            writeln('Unreachable cow, adjusting angle and looking again');
+            Minimap.SetCompassAngle(Randomrange(1, 358), 10);
+          end else
+          begin
+            writeln('attacking');
+            repeat
+              writeln('still attacking');
+              if minimap.GetHPPercent < 30 then
+              begin
+                repeat
+                  writeln('hp is low, running away');
+                  rsw.WalkBlind([4865, 3424], 13);
+                  grabbones;
+                  rsw.WalkBlind([4861, 3266], 8);
+                  grabbones;
+                  rsw.WalkBlind([4865, 3424], 13);
+                  grabbones;
+                  rsw.WalkBlind([4858, 3412], 15);
+                  grabbones;
+                  rsw.WalkBlind([4800, 3287], 10);
+                  grabbones;
+                until(minimap.GetHPPercent > 60);
+              end;
+              wait(randomrange(100, 176));
+            until(not(srl.IsAnimating(box(248, 151, 266, 182), 150, 1000, 3)));
+            timer.Reset;
+            begin
+              writeln('cow is dead, grabbing bones');
+              wait(randomrange(1000, 2000));
+              grabbones;
+            end;
+          end;
+        end;
+        //timerun;
+      end;
+    end else
+    begin
+      minimap.SetCompassAngle(randomrange(0, 359), 10);
+    end;
+  end;
+end;
+
+begin
+
+  begin
+    rsw.Setup('world');
+    options.SetZoomLevel(50);
+    minimap.SetCompassAngle(270);
+  end;
+
+  repeat
+    attackcow;
+  until(not(rsclient.IsLoggedIn));
+end.

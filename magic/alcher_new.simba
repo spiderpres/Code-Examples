@@ -1,0 +1,175 @@
+program alcher;
+{$define srl_use_remoteinput}
+{$i srl/osr.simba}
+
+var
+  alchdtm, spellx, spelly, maxruntime, itemsleft, tries: integer;
+  totaltimer: tstopwatch;
+
+const
+  ToAlch = 'Phoenix necklace';
+  invslot = 11;
+  debugger = false;
+
+function HasItems: boolean;
+begin
+  result:= inventory.FindItem('Nature rune');
+end;
+
+function antibanner: boolean;
+begin
+
+  case random(1000) of
+
+    0..249:
+    begin
+      writeln('no antiban');
+      result:= false;
+    end;
+
+
+    250..255:
+    begin
+      writeln('random pause');
+      wait(randomrange(3000, 8000));
+      result:= true;
+    end;
+
+    256..499:
+    begin
+      writeln('no antiban');
+      result:= false;
+    end;
+
+    500..749:
+    begin
+      writeln('no antiban');
+      result:= false;
+    end;
+
+    750:
+    begin
+      writeln('long afk');
+      mouse.move(0, random(mainscreen.Bounds.Height));
+      wait(randomrange(15000, 25000));
+      result:= true;
+    end;
+
+    751..1000:
+    begin
+      writeln('no antiban');
+      result:= false;
+    end;
+
+  end;
+end;
+
+function findspell: boolean;
+begin
+  if finddtm(alchdtm, spellx, spelly, inventory.Bounds) then
+  begin
+    mouse.Move(spellx, spelly);
+    result:= mainscreen.IsUpText('Cast High');
+  end;
+end;
+
+procedure alch;
+var
+  timerr: tstopwatch;
+  items, runes: integer;
+begin
+  if hasitems then
+  begin
+    gametabs.open(ersgametab.MAGIC);
+
+    repeat
+      timerr.Reset;
+      if findspell then
+      begin
+        mouse.click(mouse_left);
+        wait(randomrange(500, 800));
+        timerr.Start;
+
+        if inventory.IsOpen and mainscreen.IsUpText('Cast High') then
+        begin
+          items:= inventory.CountItem(ToAlch);
+          runes:= inventory.CountItemStack('Nature rune');
+          itemsleft:= inventory.CountItemStack(toalch);
+          writeln(items);
+          writeln(runes);
+          writeln(itemsleft);
+
+          inventory.HoverSlot(invslot);
+          if mainscreen.getuptext.EndsWith('necklace') then
+            mouse.click(mouse_left);
+
+          {if mainscreen.GetUpText.EndsWith('necklace') then
+            mouse.click(spellx, spelly, mouse_left); }
+          if antibanner then
+            break;
+
+          while inventory.Isopen and (tries < 3) do
+          begin
+            writeln('Timer: ' + tostr(timerr.ElapsedTime));
+
+            wait(randomrange(800, 1200));
+            if (timerr.ElapsedTime > 5000) then
+            begin
+              writeln('Something messed up: spellbook didn''t open.');
+              gametabs.open(ersgametab.MAGIC);
+              tries = tries + 1;
+              break;
+            end;
+          end;
+        end else
+        begin
+          mouse.move(705, 303);
+          if mainscreen.getuptext.EndsWith('necklace') then
+            mouse.click(mouse_left);
+        end;
+      end;
+
+    until(runes = 0);
+  end else
+  if (inventory.Count < 3) then
+  begin
+    writeln('out of supplies. logging out.');
+    logout.ClickLogout;
+  end;
+end;
+
+procedure setupp;
+begin
+  srl.setup;
+  tries:= 0;
+  alchDTM := DTMFromString('mPwEAAHic42dgYDBlYmAwh2JLILYGYhsgtoKKGQGxARDrQbEOEGtD6SBGBgZPIPYB4gAgDgHiMCCOQMIgfjAWvvEUY4Y9hw6AMYj96xsPGF+6xMmwfj0Cg8TQ+ZQARgowGgAA9Qcgsw==');
+end;
+
+procedure freedtms;
+begin
+  freedtm(alchdtm);
+end;
+
+begin
+  if debugger then
+  begin
+    rsclient.image.DrawBoxes(inventory.GetSlotBoxes, clred);
+    inventory.HoverSlot(11);
+    exit;
+  end;
+
+  setupp;
+  totaltimer.Start;
+  addonterminate('freedtms');
+  repeat
+    alch;
+    writeln(srl.TimeRunning);
+  until(not(rsclient.isloggedin));
+
+  if not rsclient.IsLoggedIn then
+  begin
+    writeln('not logged in, terminating script');
+    freedtms;
+    terminatescript;
+  end;
+end.

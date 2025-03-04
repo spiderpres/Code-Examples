@@ -1,0 +1,201 @@
+program LumbyWineMaker;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+const
+  drawdebug = True;
+
+var
+  walkit: TRSWalker;
+  GrapeCount_Start, Grapecount_Current, Wines_Made, XP_Gained, CurrentJugs: integer;
+  Grape_WithdrawHelper, Empty_Jug_Withdrawhelper: TRSBankWithdrawItem;
+  maker: TRSMake;
+
+type TScriptState = (Withdraw_Jug, Withdraw_Grapes, Fill_Jugs, Make_Wine, Deposit_Wine);
+
+// Combination of miss mouse + slowing near the target destination   //credit: Flight
+procedure TMouse.HumanMove(Point: TPoint);
+var
+  mPt: TPoint;
+  S: Int32;
+  Miss: Double;
+  Range: Int64;
+begin
+  S := Self.Speed;
+  Range := Trunc(Power(Self.Position().DistanceTo(Point), 0.80)); // how much possible range to miss
+  Miss := SRL.SkewedRand(0.9, 0.1, 1.5); // Where miss will happen. 1 = destination (P).
+
+  mPt.X := Trunc((1-Miss)*Self.Position().X + Miss*Point.X);
+  mPt.Y := Trunc((1-Miss)*Self.Position().Y + Miss*Point.Y);
+
+  mPt.X += SRL.NormalRange(-Range, Range);
+  mPt.Y += SRL.NormalRange(-Range, Range);
+
+  Self.Move(mPt);
+  Self.Speed := round(S*0.85);
+  Self.Move(Point);
+  Self.Speed := S;
+end;
+
+function findbank(open: boolean): TPoint;
+var
+  X, Y: Integer;
+begin
+
+  if findcolorspiraltolerance(x, y, 530015, mainscreen.Bounds.X1, mainscreen.Bounds.y1, mainscreen.Bounds.x2, mainscreen.bounds.y2, 19) then
+  begin
+    mouse.move(x, y);
+
+    if mainscreen.IsUpText('Bank') then
+      result:= [x, y];
+
+    if open then
+      mouse.click(mouse_left);
+
+  end;
+end;
+
+function withdraw(item: TRSBankWithdrawItem): Boolean;
+begin
+  //code for withdrawing items,
+end;
+
+function setupbank: boolean;
+begin
+  //runs on first start, makes sure bank withdraw is setup correctly.
+  //returns true if find 14 empty jugs & 14 grapes
+  Grapecount_start:= bank.CountItemStack('Grapes');
+  result:= inventory.FindItems(['Jug', 'Grapes']);
+end;
+
+procedure resetinventory; //call this when shit's out of wack
+begin
+  //bank all inventory, withdraw 14 jugs and 14 grapes.
+end;
+
+function findsink: Boolean;
+var
+  x, y: integer;
+  TPA: TPointArray;
+begin
+
+  if findcolorsspiraltolerance(x, y, TPA, 8351591, mainscreen.Bounds.X1, mainscreen.Bounds.y1, mainscreen.Bounds.x2, mainscreen.bounds.y2, 13) then
+  begin
+
+    mouse.move(tpa.Bounds.Middle);
+
+    result:= mainscreen.IsUpText(['Use Jug', 'Sink']);
+
+  end;
+end;
+
+function filljugs: boolean;
+var
+  timerr: TStopwatch;
+begin
+
+  //code for clicking jug, then clicking foundtain.
+
+  if inventory.FindItem('Jug') then
+  begin
+
+    inventory.clickitem('Jug');
+
+    if (findsink) then
+    begin
+      timerr.start;
+      mouse.click(mouse_left);
+
+      if mainscreen.didredclick then
+      begin
+
+        while inventory.finditem('Jug') and (timerr.elapsedtime < randomrange(10000, 15000)) do
+          wait(randomrange(131, 531));
+
+        writeln('Sink detection is working!');
+      end;
+    end;
+  end;
+
+  if inventory.CountItem('Jug of Water') = 14 then
+    result:= true;
+
+  timerr.reset;
+end;
+
+procedure makewine(scriptstate: TScriptState);
+begin
+  case scriptstate of
+
+    Withdraw_Jug: begin end;
+
+    Withdraw_Grapes: begin end;
+
+    Fill_Jugs: begin end;
+
+    Make_Wine: begin end;
+
+    Deposit_Wine: begin end;
+
+  end;
+end;
+
+function isinvyready: boolean;
+begin
+  if (inventory.CountItem('Jug') = 14) and (inventory.CountItem('Grapes') = 14) then
+  begin
+    result:= true;
+  end else
+    result:= false;
+end;
+
+//when this procedure gets called we should be ready to fill jugs
+{function setscriptstate: TScriptState;
+begin
+  if isinvyready then
+    makewine(fill_jugs);
+  else
+    resetinventory;
+
+  if
+
+
+ }
+
+procedure debugger;
+var
+  Currentpos: tpoint;
+  CensorBox: tbox;
+begin
+  CurrentPos:= walkit.getmypos;
+  CensorBox:= chat.Bounds;
+
+  RSClient.Image.DrawBoxFilled(CensorBox, false, clCream);
+
+  RSClient.Image.DrawText(tostr(currentpos), [12, 350], clFuchsia);
+  RSClient.Image.Clear(chat.GetLineBoxes[7]);
+end;
+
+procedure setupp;
+begin
+  srl.Setup;
+  walkit.setup('world');
+  walkit.ScreenWalk:= true;
+
+  //if setupbank then
+end;
+
+begin
+  setupp;
+
+  filljugs;
+
+  repeat
+    if drawdebug then
+    begin
+      debugger;
+      wait(10);
+      rsclient.image.clear;
+    end;
+  until(not(rsclient.IsLoggedIn));
+end.

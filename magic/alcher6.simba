@@ -1,0 +1,154 @@
+program alcher;
+{$define srl_use_remoteinput}
+{$i srl/osr.simba}
+
+var
+  alchdtm, spellx, spelly, maxruntime, itemsleft, notednecklaceDTM: integer;
+  casts: int32;
+  totaltimer: tstopwatch;
+
+const
+  ToAlch = 'Phoenix necklace';
+
+procedure printtimerunning(extra: string);
+begin
+  rsclient.image.clear;
+  rsclient.image.DrawText(srl.TimeRunning, chat.Center, clnavy);
+  rsclient.image.DrawText(extra, chat.Center.Offset(0, 15), clnavy);
+end;
+
+function HasItems: boolean;
+begin
+  result:= inventory.FindItems(['Nature rune']);
+end;
+
+procedure antibanner;
+begin
+
+  case random(1000) of
+
+    0..249:
+    begin
+      writeln('no antiban');
+    end;
+
+
+    250..300:
+    begin
+      writeln('random pause');
+      wait(randomrange(3000, 8000));
+    end;
+
+    301..499:
+    begin
+      writeln('no antiban');
+    end;
+
+    500..749:
+    begin
+      writeln('no antiban');
+    end;
+
+    750:
+    begin
+      writeln('long afk');
+      mouse.move(0, random(mainscreen.Bounds.Height));
+      wait(randomrange(15000, 25000));
+    end;
+
+    751..1000:
+    begin
+      writeln('no antiban');
+    end;
+
+  end;
+end;
+
+function findspell: boolean;
+begin
+  if finddtm(alchdtm, spellx, spelly, inventory.Bounds) then
+  begin
+    mouse.Move(spellx, spelly);
+    result:= mainscreen.IsUpText('Cast High');
+  end;
+end;
+
+procedure alch;
+var
+  timerr: tstopwatch;
+  items, runes, necklaceX, necklaceY: integer;
+begin
+  if hasitems then
+  begin
+    repeat
+      gametabs.open(ersgametab.MAGIC);
+
+      if findspell then
+      begin
+        mouse.click(mouse_left);
+        wait(randomrange(600, 1200));
+        timerr.Start;
+
+        if inventory.IsOpen then
+        begin
+          items:= inventory.CountItem(ToAlch);
+          runes:= inventory.CountItemStack('Nature rune');
+          itemsleft:= inventory.CountItemStack(toalch);
+          writeln(items);
+          writeln(runes);
+          writeln(itemsleft);
+          printtimerunning(tostr(casts));
+          if finddtm(notednecklaceDTM, necklaceX, necklaceY, inventory.bounds) then
+            mouse.click(necklaceX, necklaceY, mouse_left);
+
+          //inventory.Clickslot(12, 'Cast High');
+          antibanner;
+
+          while inventory.Isopen and (timerr.ElapsedTime < 5000) do
+            wait(randomrange(151, 1000));
+
+          casts:= casts + 1;
+
+
+        end;
+      end;
+
+    until({(items = 0) or }(runes = 0));
+  end else
+  begin
+    writeln('out of supplies. logging out.');
+    logout.ClickLogout;
+  end;
+end;
+
+procedure setupp;
+begin
+  srl.setup;
+
+  casts:= 0;
+
+  alchDTM := DTMFromString('mPwEAAHic42dgYDBlYmAwh2JLILYGYhsgtoKKGQGxARDrQbEOEGtD6SBGBgZPIPYB4gAgDgHiMCCOQMIgfjAWvvEUY4Y9hw6AMYj96xsPGF+6xMmwfj0Cg8TQ+ZQARgowGgAA9Qcgsw==');
+  notednecklaceDTM := DTMFromString('mAAEAAHic42FgYHBiYmBwAGJ7KLYBYluoGEjOBYjdgdgLioMZGRh8gNgfiIOAOBSII4A4EkqHQsX9gNgbiDfNV2CoLRBjqMwRYJjQIMZw77g6w/WDygxzeqQZemrFwBgkv3iSNENHlRgDqYCRRIwMAI2KFjc=');
+end;
+
+procedure freedtms;
+begin
+  freedtm(alchdtm);
+  freedtm(notednecklacedtm);
+end;
+
+begin
+  setupp;
+  totaltimer.Start;
+  addonterminate('freedtms');
+  repeat
+    alch;
+  until(not(rsclient.isloggedin));
+
+  if not rsclient.IsLoggedIn then
+  begin
+    writeln('not logged in, terminating script');
+    freedtms;
+    terminatescript;
+  end;
+end.

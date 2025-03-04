@@ -1,0 +1,270 @@
+{
+                                    Vinyl's Most In One Miner!
+
+                           -turn on shift dropping for powermining!
+
+                           -powermining seems to work in most places.
+
+                           -currently in progress:
+
+                              >banking. Maybe only available at mining guild?
+                              >fixing issue with continuing to click even after detecting mining.
+                                might need to divide mining detection up into functions for use within minerocks;.
+                              >more thurough debugging, plus printing script status to rsclient (current procedure, meta debugging within procedure, etc.)
+                              >
+                           -ideas for future:
+                              >gem detection, counting, handling
+
+
+
+}
+program VinylMIOner;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl-f/osr.simba}
+
+const
+  ore = 'Clay';             //what ore?
+  powermine = false;        //true for mine & drop, false for bank
+  miningguild = false;      //are you at the mining guild? must be true for banking
+
+var
+  timer: tstopwatch;
+  RSW: TRSWalker;
+  pathtobank, pathtomine: TPointArray;
+
+procedure setup;
+begin
+  rsw.setup('world');
+  writeln('world loaded');
+  options.SetZoomLevel(randomrange(23, 28));
+  writeln('zoom set');
+  minimap.SetCompassAngle(1);
+  writeln('compass set');
+  mainscreen.SetHighestPitch;
+  writeln('pitch set');
+  pathtobank:= [[4531, 2963], [4528, 2913], [4491, 2859], [4495, 2787], [4527, 2734], [4541, 2701]];
+  pathtomine:= [[4539, 2719], [4506, 2742], [4495, 2810], [4508, 2877], [4524, 2924], [4516, 2977]];
+  Writeln('paths assigned');
+  timer.Start;
+  writeln('timer started');
+end;
+
+
+//checks to see if we are at the mine or the bank
+function WhereAreWe: boolean;
+begin
+  result:= true;
+end;
+
+//walks to the bank
+function walktobank: boolean;
+begin
+  if not inventory.IsFull then
+    exit
+  else
+  begin
+    result:= rsw.WalkPath(pathtobank, randomrange(0, 17));
+  end;
+end;
+
+function walktomine: boolean;
+begin
+  if inventory.IsFull then
+    exit
+  else
+  begin
+    result:= rsw.WalkPath(pathtomine, randomrange(0, 17));
+  end;
+end;
+
+function depositore:boolean;
+var
+  bankertpa, banker: tpointarray;
+  ATPA: T2dpointarray;
+begin
+  if srl.findcolors(bankertpa, CTS2(6636369, 7, 0.08, 0.58), mainscreen.bounds) then
+  begin
+    ATPA := bankerTPA.Cluster(2);
+    ATPA.FilterSize(25, 300);
+    ATPA.SortByIndex(Mainscreen.Center);
+    for banker in ATPA do
+    begin
+      writeln('banker detected');
+      mouse.move(banker[random(length(banker))]);
+      if mainscreen.IsUpText('Talk', 50) then
+      begin
+        mouse.click(mouse_right);
+        chooseoption.Select(['Bank banker'], mouse_left, false, true);
+        writeln('opening bankscreen');
+
+        exit;
+      end;
+    end;
+  end;
+end;
+
+
+//drops or banks depending on powermine const
+procedure bankordrop;
+var
+  oree: integer;
+  orre: TRSItem;
+begin
+  orre:= ore + ' ore'
+  if (powermine = true) then
+  begin
+    Writeln('powermining selected; dropping ore');
+    repeat
+      inventory.ClickItem(ore + ' ore', 'Drop ' + ore + ' ore');
+      oree:= inventory.CountItem(orre);
+    until(oree = 0);
+  end else
+  begin
+    writeln('banking selected; depositing ore');
+    walktobank;
+    { **code for deposit**}
+  end;
+end;
+
+procedure losetrack;
+begin
+  case random(500) of
+    0:     begin
+             writeln('waiting short');
+             wait(randomrange(3000, 4500));
+           end;
+
+    1..10: begin
+             writeln('not losing track');
+           end;
+
+    11:    begin
+            writeln('waiting long');
+            wait(randomrange(10000, 20000));
+           end;
+
+    12..99:begin
+             minimap.SetCompassAngle(randomrange(0, 359));
+           end;
+
+    100..499:   begin
+             writeln('not losing track');
+           end;
+  end;
+end;
+
+//general rock-finding procedure based on input parameters
+procedure minerock(text:string; clr, tol:int32; hmod, smod:extended);
+var
+  tpa, rock, selectedrock: tpointarray;
+  rockcount: integer;
+  atpa: t2dpointarray;
+  timerr: TStopwatch;
+  chatline, altchatline: string;
+begin
+  writeln('current procedure: minerock; mining ' + ore);
+  rockcount:= inventory.Count;
+  if srl.findcolors(TPA, CTS2(clr, tol, hmod, smod), mainscreen.bounds) then
+  begin
+    writeln('color match detected');
+    atpa:= tpa.cluster(10);
+    rsclient.Image.DrawATPA(atpa);
+    writeln('assained ATPA');
+    ATPA.FilterSize(50, 500);
+    ATPA.SortByIndex(Mainscreen.Center);
+    writeln('sorting tpoints');
+    rsclient.image.Clear;
+    rsclient.image.DrawATPA(atpa);
+    for rock in ATPA do
+    begin
+      wait(randomrange(100, 250));
+      rsclient.image.Clear;
+      rsclient.image.DrawATPA(atpa);
+      writeln('potential ' + ore);
+      writeln(timer.elapsedtime);
+      mouse.move(rock[random(length(rock))]);
+      if mainscreen.IsUpText(text, 50) then
+      begin
+        writeln('found uptext');
+        mouse.click(mouse_left);
+        if mainscreen.DidRedClick then
+        begin
+          writeln('red click detected');
+          timerr.Reset;
+          timerr.start;
+          wait(500);
+          repeat
+            wait(randomrange(100, 200));
+            writeln('walking to rock');
+          until((chat.getMessage(7, [CHAT_COLOR_BLACK]) = 'You swing your pick at the rock') {need to check for chat message of swinging pick or no ore} or (timerr.ElapsedTime > 10000));  //gets stuck on checking chat if we mine minerals
+
+          if chat.getMessage(7, [CHAT_COLOR_BLACK]) = 'You swing your pick at the rock.' then
+          begin
+            chatline:= chat.GetMessage(0, [CHAT_COLOR_BLACK]);
+            writeln('line 0 in chat: "' + chatline +'"; mining...');
+            repeat
+              wait(randomrange(50, 200));
+              losetrack;
+              writeln('still mining...');
+              writeln(inttostr(srl.GetPixelShift(box(256, 155, 269, 177), 500)));
+            until(srl.GetPixelShift(box(256, 155, 269, 177), 500) < 80);
+            if (chat.GetMessage(0, [chat_color_black]) = 'You manage to mine some ' + ore + '.')  then
+            begin
+              writeln('mined ' + ore);
+              exit;
+            end else
+            begin
+              writeln('things did not go as expected..');
+            end;
+          end else
+          begin
+            altchatline:= chat.getmessage(0, [chat_color_black]);
+            chat.getmessage(0, [chat_color_black])
+            if (altchatline = 'There is currently no ore available in the rock') then
+            begin
+              writeln('no ore in rock; searching again');
+            end;
+          end;
+        end else
+        begin
+          writeln('didn''t red click');
+        end;
+      end;
+    end;
+  end;
+end;
+
+procedure minee;
+begin
+  Writeln('current procedure: minee');
+  if inventory.isfull then
+  begin
+    writeln('inventory is full');
+    bankordrop;
+  end;
+
+  case ore of
+    'Copper': minerock('Mine Copper', 4613508, 8, 0.03, 0.09);
+    'Tin': minerock('Mine Tin', 8882321, 10, 0.17, 0.13);
+    'Iron': minerock('Mine Rocks', 3490918, 4, 0.07, 0.24);
+    'Coal' : minerock('Mine Coal', 3097155, 4, 0.21, 0.42);
+    'Mithril': minerock('Mine Rocks', 7426641, 13, 0.05, 0.05);
+    'Clay': minerock('Mine Clay', 5345712, 9, 0.02, 0.86);
+    //'clay':
+    //'coal' :
+    //'gold':
+    //'adamant':
+    //'rune':
+  end;
+end;
+
+begin
+  setup;
+  cleardebug;
+  writeln('setup completed');
+  repeat
+    inventory.Open;
+    minee;
+    writeln(srl.TimeRunning(time_formal_long));
+  until(not(rsclient.IsLoggedIn));
+end.

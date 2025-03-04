@@ -1,0 +1,138 @@
+program redspiderkiller; //start at red spiders with food and at least one space empty
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+const
+  drawdebug = true;
+  WhatFood = 'Swordfish';
+
+var
+  eggcol, demoncol: TCTS2Color;
+  spiderskilled: integer;
+
+procedure println(line: string);
+begin
+  writeln(line);
+  lineprinter([line, 'Spiders killed: ' + tostr(spiderskilled), tostr(srl.TimeRunning)], [3, 276]);
+end;
+
+function teleout: boolean;
+begin
+  result:= inventory.clickitem('Ardougne teleport');
+end;
+
+procedure attackspider;
+var
+  spidertpa: tpointarray;
+  spideratpa: t2dpointarray;
+  spiderbox: tboxarray;
+  timerr: tstopwatch;
+  checks: integer;
+begin
+  if srl.FindColors(spidertpa, demoncol, mainscreen.Bounds) then
+  begin
+    timerr.Start;
+    println('found possible spider');
+    spideratpa:= spidertpa.cluster(10);
+    spideratpa.FilterSize(200, __GT__);
+    spideratpa.SortByMiddle(mainscreen.Bounds.Middle);
+    spiderbox:= spideratpa.ToTBA;
+
+    if drawdebug then rsclient.image.DrawBoxes(spiderbox, clwhite);
+
+    mouse.move(spiderbox[low(spiderbox)]);
+
+    if mainscreen.IsUpText('Attack') then
+      mouse.click(mouse_left);
+
+    if mainscreen.DidRedClick then
+    begin
+      rsclient.Image.Clear;
+      wait(150);
+
+      while minimap.IsPlayerMoving(200) do
+      begin
+        if (timerr.ElapsedTime > 5000) then
+          break;
+        println('walking to spider');
+        wait(251);
+      end;
+
+      while (length(mainscreen.FindHPBars) < 2) do
+      begin
+        if (timerr.ElapsedTime > 15000) then
+          break;
+        println('waiting for hp bars');
+        wait(150);
+      end;
+
+      checks:= 0; //reset checks before loop
+      while (length(mainscreen.FindHPBars) >= 1) and (checks < 10) do
+      begin
+        if (length(mainscreen.FindHPBars) <= 1) then
+        begin
+          checks:= checks + 1; //iterates number of checks
+          println('Check #: ' + tostr(checks));
+        end else
+          checks:= 0;          //resets checks if we are still in combat
+
+        println('we are in combat');
+
+        if (minimap.GetHPpercent < 50) then
+          if inventory.FindItem(whatfood) then
+          begin
+            while (minimap.GetHPpercent < 85) do
+              if inventory.ClickItem(whatfood) then
+              begin
+                println('Ate food. health is at: ' + tostr(minimap.GetHPLevel));
+                wait(250);
+              end;
+          end else
+            if (minimap.GetHPpercent < 20) then
+              if teleout then
+              begin
+                writeln('out of food and low health, teleported out.');
+                terminatescript;
+              end;
+        wait(150);
+      end;
+      if (checks = 10) then
+        spiderskilled:= spiderskilled + 1;
+    end else
+    begin
+      println('Didn''t click spider. resetting procedure.');
+      timerr.Reset;
+      exit;
+    end;
+  end;
+  timerr.Reset;
+  {if findeggs then
+    rsclient.image.clear; }
+end;
+
+procedure wipe;
+begin
+  rsclient.image.clear;
+end;
+
+begin
+  addonterminate('wipe');
+
+  eggcol:= CTS2(1846693, 7, 0.06, 0.31);
+  demoncol:= CTS2(1782146, 18, 0.17, 1.98);
+
+  spiderskilled:= 0;
+
+  mouse.Speed:= 15;
+
+  mainscreen.SetHighestPitch;
+  if (options.GetZoomLevel <> 35) then
+    options.SetZoomLevel(35);
+
+
+  repeat
+    attackspider;
+    println(srl.TimeRunning);
+  until not rsclient.IsLoggedIn;
+end.

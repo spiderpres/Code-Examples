@@ -1,0 +1,238 @@
+program edgevillecannonballsmither;            //case walkit.getmypos of?
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+const
+  OnScreenDebug = True;
+  furnaceCol = 3953524;
+  furnaceTol = 3;
+
+
+var
+  walkit: TRSWalker;
+  startingbars, ballsmade, levelsgained, startxp, xpgained, currentxp, tripticker: integer;
+  bankcolor: TCTS2Color;
+  banksearchbox: tbox;
+
+procedure scriptstatus(text: string);
+begin
+  writeln(text);
+  writeln(srl.TimeRunning);
+  if OnScreenDebug then
+  begin
+    rsclient.image.clear;
+    rsclient.image.DrawText(srl.TimeRunning, [10, 50], clteal);
+    rsclient.image.DrawText(text, [10, 75], clteal);
+    rsclient.image.DrawText('Current pos: ' + tostr(walkit.GetMyPos), [10, 30],  clteal);
+  end;
+end;
+
+procedure Drawdebugdata;
+begin
+  rsclient.image.clear;
+  rsclient.image.DrawBox(mainscreen.GetPlayerBox, clred);
+  rsclient.image.DrawText('player pixel shift: ' + inttostr(srl.GetPixelShift(mainscreen.GetPlayerBox, 50)), [10, 100], clred);
+  rsclient.image.DrawText('world map tile: ' + tostr(walkit.getmypos), [10, 125], clred);
+  wait(25);
+  rsclient.image.DrawText('zoom level: ' + tostr(mm2ms.ZoomLevel), [10, 150], clred);
+  wait(25);
+end;
+
+procedure calculategains;
+begin
+  //case random(100) of// <- to only check skill xp occasionally
+  currentxp:= stats.GetSkillInfo(ersskill.SMITHING).XP;
+  xpgained:= currentxp - startxp;
+  ballsmade:= (startingbars * 4) * tripticker;
+
+end;
+
+function walktofurnace: boolean;
+begin
+  scriptstatus('walking to furnace');
+  result:= walkit.WalkBlind([4239, 2452], 5);
+end;
+
+function grabbars: boolean;
+begin
+  if bank.isopen and bank.FindItem('Steel bar') then
+  begin
+    writeln('found steel bar, withdrawing');
+
+    bank.WithdrawItem(['Steel bar', -1, false], true);
+    bank.close;
+    result:= inventory.FindItem('Steel bar');
+  end;
+end;
+
+procedure openbank;
+var
+  x, y: integer;
+  TPA: TPointArray;
+begin
+  rsclient.image.drawbox(banksearchbox, clgreen);
+  scriptstatus('opening bank');
+  if srl.FindColors(tpa, bankcolor, mainscreen.Bounds) then
+  begin
+    mouse.move(TPA.Bounds.Middle);
+    if mainscreen.IsUpText('Bank') then
+    begin
+      mouse.click(mouse_left);
+      if mainscreen.DidRedClick then
+      begin
+        repeat
+          wait(121);
+        until(bank.IsOpen);
+      end;
+    end else
+    begin
+      exit;
+    end;
+  end;
+end;
+
+function walktobank: boolean;
+var
+  x, y: integer;
+begin
+  if (walkit.getmypos.DistanceTo([4194, 2470]) > 10) then
+  begin
+    scriptstatus('walking to bank');
+    walkit.WebWalk([4194, 2470], 3, 1);
+  end else
+  begin
+    writeln('we are at bank');
+  end;
+  result:= walkit.WebWalk([4194, 2470], 5, 1);
+end;
+
+function issmithing: boolean;
+begin
+  scriptstatus('isSmithing');
+  rsclient.image.clear;
+  rsclient.image.DrawBox(mainscreen.GetPlayerBox, clred);
+  result:= srl.IsAnimating(mainscreen.GetPlayerBox, 50, 100, 5);
+end;
+
+
+
+function clickfurnace: boolean;
+var
+  x, y: integer;
+begin
+  scriptstatus('clicking furnace');
+  if findcolortolerance(x, y, furnaceCol, mainscreen.Bounds, furnaceTol) then
+  begin
+    mouse.move(x, y);
+    if mainscreen.IsUpText('Smelt') then
+      mouse.click(x, y, mouse_left);
+
+    if mainscreen.DidRedClick then
+    begin
+      scriptstatus('smelting balls');
+      repeat
+        wait(131);
+      until(make.IsOpen);
+      result:= make.isOpen;
+    end else
+    begin
+      scriptstatus('did not click the furnace. Trying again.');
+      //attempt:= attempt+1;
+    end;
+  end;
+end;
+
+procedure countxp;
+begin
+  //currentxp:= stats.GetSkillInfo(SMITHING).XP;
+  xpgained:= currentxp - startxp;
+end;
+
+procedure makeballs;
+var
+  x, y: integer;
+  timerr: tstopwatch;
+begin
+
+  begin
+    make.select(0, -1, false);
+    timerr.start;
+
+    while inventory.finditem('Steel bar') and (timerr.ElapsedTime < randomrange(85000, 90000)) do
+      wait(31);
+
+
+  end;
+  timerr.reset;
+end;
+
+procedure setupp;
+begin
+  srl.Setup;
+  walkit.setup('world');
+  mainscreen.SetHighestPitch;
+  options.SetZoomLevel(randomrange(45, 55));
+  startxp:= stats.getskillinfo(ersskill.SMITHING).XP;
+  bankcolor:= CTS2(7903141, 3, 0.06, 1.59);
+  banksearchbox:= box(224, 151, 294, 208);
+end;
+
+
+//check inventory for cannonball mould (need to add support for double mould when possible)
+//check inventory for & count steel bars
+//check inventory for preexisting cannonballs
+
+{
+             step by step making cannonballs:
+             -- have mould, cannon balls, and steel bars in inventory --
+             --- start at edgeville bank, bank pin already unlocked ---
+             1. walk to furnace
+             2. click furnace
+             3. check 'all' quantity (make.select?)
+             4. click cannonball icon in chatbox
+             5. wait for cannonballs to be made
+             6. once out of steel bars, walk to bank
+             7. find & click bankbooth
+             8. quantity 'All', click steel bars
+             9. close bank
+}
+procedure run;
+begin
+
+  if inventory.finditem('Steel bar') and walktofurnace then
+  begin
+    clickfurnace;
+  end;
+
+  if make.isopen then
+  begin
+    makeballs;
+  end;
+
+  if not(inventory.FindItem('Steel bar')) then
+  begin
+    if walktobank then
+    begin
+      openbank;
+    end;
+  end;
+
+  while bank.isopen and (inventory.FindItem('Steel bar') = false) do
+  begin
+    grabbars;
+  end;
+
+
+  tripticker:= tripticker + 1;
+end;
+
+begin
+  setupp;
+  repeat
+    if OnScreenDebug then
+      drawdebugdata;
+
+    run;
+
+  until(false);
+end.

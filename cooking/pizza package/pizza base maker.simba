@@ -1,0 +1,64 @@
+program pizzatime_base;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+//make pizza base
+    //withdraw 9 pots of flour and 9 buckets of water
+    //use flour on water, select pizza base -> make all
+
+//use base on tomato
+
+//use unfinished pizza on cheese
+
+//repeat
+
+//will update to better location
+
+function dobank:boolean;
+begin
+  grandexchange.OpenBank;
+  if bank.IsOpen then
+  begin
+    if bank.DepositAll then
+      if bank.WithdrawItem(['Pot of flour', 9, false], true) then
+        if bank.WithdrawItem(['Bucket of Water', 9, false], true) then
+          if inventory.FindItems(['Pot of flour', 'Bucket of water']) then
+            if bank.close(false) then
+              writeln('banking completed');
+
+    result:= bank.Close;
+  end;
+end;
+
+
+
+procedure makebase;
+begin
+  if inventory.FindItems(['Pot of flour', 'Bucket of water']) then
+  begin
+    writeln('We have everything to make Pizza Base');
+    if inventory.use('Pot of flour', 'Bucket of water') then
+    begin
+      while not make.IsOpen do
+        wait(150);
+      if make.IsOpen then make.Select(2, -1, false);
+
+      while inventory.CountItem('Pizza base') < 9 do
+        wait(50);
+
+      if inventory.CountItem('pizza base') = 9 then
+      begin
+        writeln('Finished batch of bases');
+        if dobank and (bank.IsOpen = false) then
+          writeln('starting new batch');
+      end;
+    end;
+  end else
+    dobank;
+end;
+
+
+begin
+  while rsclient.IsLoggedIn do
+    makebase;
+end.

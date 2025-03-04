@@ -1,0 +1,245 @@
+program GiantsFoundry;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+
+//firstly we are going for detection of the slider,
+//the color bars, and doing math to calculate %'s
+
+var
+  walkit: TRSWalker;
+  sliderbox1, sliderbox2, GFInterfaceBox, workbox_green1, workbox_yellow, workbox_red, tempbox, tempbox_red, tempbox_yellow, tempbox_green, workbox: tbox;
+  GFColorboxes1, GFColorBoxes2: TBoxArray;
+  currentpos, lava_pool, grindstone, triphammer, polishingwheel, waterfall, crucible, mould, bank_chest, kovac: tpoint;
+  sliderDTM: integer;
+
+procedure setupp;
+begin
+  srl.setup;
+  walkit.Setup('world');
+
+  GFInterfaceBox:= box(19, 35, 500, 107);
+  tempbox:= box(52, 61, 493, 75);
+  workbox:= box(45, 81, 496, 102);
+
+  kovac:= [3279, 1427];
+
+  bank_chest:= [3287, 1413];
+
+  crucible:= [3292, 1420];
+
+  waterfall:= [3252, 1557];
+
+  lava_pool:= [3093, 813];
+
+  triphammer:= [3325, 945];
+
+  grindstone:= [3448, 1274];
+
+  polishingwheel:= [3277, 1571];
+
+  mould:= [3276, 1419];
+
+  sliderDTM:= DTMFromString('mKgEAAHicncrrCYAwDEbRdgFn8f3aRBQRcanslJmKVw1i/dnAyReSZM65xgwY0aFFhRwFStS26+2+YcKOw/zn62fFYjlDVen+JiJRhhDe23d+pJVPFNcJ6ZQUOw==');
+
+end;
+
+function hascomission: boolean;
+begin
+end;
+
+function getcomission: boolean;
+begin
+end;
+
+function openbank: boolean;
+begin
+end;
+
+function withdrawstuff(stuff: TRSItem): boolean;//maybe use TRSItemArray?
+begin
+end;
+
+function iscruciblefull:boolean;
+begin
+end;
+
+function findinterface: boolean;
+begin
+
+end;
+
+function fillcrucible: boolean;
+begin
+end;
+
+function pourcrucible: boolean;
+begin
+end;
+
+function pickuppreform: boolean;
+begin
+end;
+
+function bucketfilled: boolean;
+begin
+end;
+
+
+function detectcolorbox: TBoxArray;
+var
+  greentpa, redtempTPA, yellowtemptpa, greentemptpa, redworkTPA, yellowworktpa, greenworktpa: TPointArray;
+  RedATPA, YellowATPA, GreenATPA: T2DPointArray;
+begin
+
+  if srl.FindColors(redtemptpa, CTS2(2893741, 13, 0.32, 1.16), tempbox) then
+    tempbox_red:= redtemptpa.Bounds;
+
+  if srl.FindColors(yellowtemptpa, CTS2(3711216, 10, 0.30, 0.98), tempbox) then
+    tempbox_yellow:= yellowtemptpa.bounds;
+
+  if srl.FindColors(greentemptpa, CTS2(4563776, 17, 0.40, 0.54), tempbox) then
+    tempbox_green:= greentemptpa.bounds;
+
+  if srl.findcolors(greentpa, CTS2(4563776, 17, 0.40, 0.54), workbox) then
+  begin
+    greenatpa:= greentpa.Cluster(5);
+    workbox_green1:= greenatpa[0].Bounds;
+
+    //rsclient.image.DrawATPA(greenatpa);
+  end;
+
+  //  workbox_green:= [greentemptpa.bounds];
+
+  result:= [tempbox_red, tempbox_yellow, tempbox_green, workbox_green1];
+
+end;
+
+function GetStepPercentage(Box : TBox): extended;
+var
+  TPA : TPointArray;
+begin
+  if SRL.FindColors(TPA, CTS2(13421772, 20, 0.01, 0.01), box) = 0 then
+    Exit(-1);
+
+  Result := (TPA.Mean.X - Box.X1) / (Box.X2 - Box.X1)
+end;
+
+function getworksliderstatus: string;
+var
+  x, x2, y, y2: integer;
+  slidertip: tbox;
+  yellowtpa, greentpa, redtpa: tpointarray;
+begin
+  if finddtm(sliderdtm, x, y, workbox) then
+  begin
+    slidertip:= box([x, y+7], 2, 3);
+    sliderbox1:= box([x, y], 5, 10);
+    rsclient.image.drawbox(sliderbox1, clyellow);
+  end;
+
+  if srl.findcolors(greenTPA, CTS2(4563776, 17, 0.40, 0.54), sliderbox1) then
+    result:= 'Polish';
+
+  if srl.findcolors(yellowTPA, CTS2(3711216, 10, 0.30, 0.98), sliderbox1) then
+    result:= 'Grind';
+
+  if srl.findcolors(redtpa, CTS2(2893741, 13, 0.32, 1.16), sliderbox1) then
+    result:= 'hammer';
+
+  if findcolor(x2, y2, 16777215, slidertip) then
+    rsclient.image.DrawText('inbetween work colors', [0, 85], clmoneygreen);
+
+
+end;
+
+function preformprogress: UInt64;
+var
+  slidertpa: TPointarray;
+  percent: uint64;
+  tempx, tempy, workx, worky: integer;
+begin
+  getworksliderstatus;
+  //if findcolors(slidertpa, CTS2(13421772, 20, 0.01, 0.01), progressbox);
+  if finddtm(sliderdtm, workx, worky, workbox) then
+  begin
+    rsclient.image.DrawCrosshairs([workx, worky], 5, clyellow);
+    //Percent := Round((progressBox.X2-sliderDTM.X) / progressBox.Width) * 100;
+  end;
+
+  if finddtm(sliderdtm, tempx, tempy, tempbox) then
+  begin
+    rsclient.image.DrawCrosshairs([tempx, tempy], 10, clyellow);
+  end;
+
+
+end;
+
+{giants foundry step-by-step from scratch:
+
+1. open bank, deposit inventory & worn, withdraw bucket
+2. set up withdraw x (7) for 1-2 click withdraw efficiency
+3. withdraw items/bars
+4. fill cruicible
+5. walk to, right click kovac -> comission
+6. set up mould for comission
+7. pour cruicible
+8. fill bucket, if not already
+9. pick up preform
+10. go thru process to make preform
+
+preform strategy:
+1. top to bottom, slider 1, 2, and 3.
+       slider 1 = preform health      //doesnt matter yet
+       slider 2 = preform temp        //detect colors, draw boxes
+       slider 3 = preform work state  //detect colors, draw boxes
+
+2. when preform is first picked up, it will always be at the hottest point
+3. when preform is first picked up, hammering will always be first
+
+temperature slider bar:
+__________________________________________________________________________________
+| grey |[     green     ]| grey |[     yellow     ]| grey |[     red     ]| grey |
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+case tempsliderpercent of
+  0..4: grey
+
+  5..24: green
+
+  25..30: grey2
+
+  31
+
+
+case workstate of
+  'Hammer':
+
+
+if sliderdtm.x = progressbox.high
+
+procedure run;
+begin
+  if not hascomission then
+    getcomission;
+
+  while TTempstate != TWorkState do
+  begin
+    if
+
+
+}
+
+begin
+  setupp;
+  repeat
+    currentpos:= walkit.GetMyPos;
+    rsclient.image.clear;
+    rsclient.image.DrawBox(GFInterfaceBox, clred);
+    rsclient.image.DrawText(tostr(currentpos), [5, 10], clred);
+    rsclient.image.drawboxes(detectcolorbox, clblue);
+    rsclient.image.drawtext(getworksliderstatus, [5, 75], clteal);
+    preformprogress;
+    wait(100);
+  until(not(rsclient.IsLoggedIn));
+end.

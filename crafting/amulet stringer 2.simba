@@ -1,0 +1,115 @@
+program amuletstringer2;   //strings amulets with balls of wool at lumby basement bank
+{$DEFINE SRL_USE_REMOTEInPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+const
+  amulet_u = 'Topaz amulet (u)';
+  bwool = 'Ball of wool';
+
+var
+  bankcol: tcts2color:= CTS2(1055335, 3, 0.27, 1.31);
+  strung: integer;
+
+function hasitems: boolean;
+begin
+  result:= (inventory.FindItem(amulet_u) and inventory.FindItem(bwool));
+end;
+
+function openbank: boolean;
+var
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+  timerr: tstopwatch;
+begin
+  timerr.start;
+  if srl.FindColors(TPA, bankcol, mainscreen.Bounds) then
+  begin
+    ATPA:= tpa.Cluster(2);
+    rsclient.Image.DrawTPA(atpa.Biggest, clgreen);
+    mouse.move(ATPA.Biggest.Bounds);
+    if mainscreen.IsUpText('Bank') or mainscreen.IsUpText('Use') then
+    begin
+      mouse.click(mouse_left);
+      if not mainscreen.DidRedClick then
+        mouse.click(mouse_left);
+      if mainscreen.DidRedClick then
+      begin
+        wait(randomrange(500, 1000));
+        result:= bank.IsOpen;
+      end;
+    end else
+      mouse.move(tpa.Bounds, true);
+  end;
+  rsclient.image.clear;
+end;
+
+function dobank: boolean;
+begin
+  if bank.IsOpen then
+  begin
+    if bank.DepositAll then
+      writeln('deposited everything');
+  end else
+  begin
+    if openbank then
+      if bank.DepositAll then
+        writeln('deposit2');
+  end;
+
+  wait(randomrange(250, 500));
+
+  if not inventory.IsFull then
+    if bank.FindItem(amulet_u) then
+      if bank.WithdrawItem([amulet_u, 14, false], true) then
+        writeln('withdrew amulets');
+
+  wait(randomrange(250, 500));
+
+  if bank.FindItem(bwool) then
+    if bank.WithdrawItem([bwool, 14, false], true) then
+      writeln('got wool');
+
+  wait(randomrange(500, 800));
+
+  if hasitems then
+  begin
+    bank.close;
+    wait(randomrange(500, 800));
+  end;
+
+  result:= bank.close;
+end;
+
+procedure stringem;
+begin
+  if not hasitems then
+    if dobank then
+    begin
+      writeln('didn''t have items. banked and ready.');
+      exit;
+    end;
+
+  if inventory.use(amulet_u, bwool) then
+    while not make.isopen do
+      wait(150);
+
+  if make.IsOpen then
+    if make.Select(0, -1, true) then
+      while inventory.FindItems([amulet_u, bwool]) do
+        wait(150);
+
+  if not hasitems then
+    if dobank then
+      writeln('banking done');
+
+  strung:= strung + 14;
+end;
+
+
+begin
+  repeat
+    stringem;
+    lineprinter([srl.TimeRunning, tostr(strung)], [6, 313]);
+  until not rsclient.IsLoggedIn;
+end.

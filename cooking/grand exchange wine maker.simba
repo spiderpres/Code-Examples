@@ -1,0 +1,54 @@
+program new;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+procedure makewine;
+begin
+  //inventory.ClickItem('Grapes');
+  //inventory.ClickItem('Jug of water');
+
+  if inventory.finditem('Grapes') and inventory.FindItem('Jug of water') then
+    inventory.use(13, 14);
+
+  while not make.IsOpen do
+    wait(150);
+
+  if make.IsOpen then
+    make.Select(0, -1, true);
+
+  while inventory.finditem('Grapes') do
+    wait(150);
+
+  if not inventory.finditem('Grapes') then
+    if bank.Open(ersbanklocation.GRAND_EXCHANGE) then
+    begin
+      bank.DepositAll;
+
+      if bank.FindItem('Grapes') and bank.FindItem('Jug of water') then
+      begin
+        if bank.ClickItem('Grapes') then
+          while not inventory.FindItem('Grapes') do
+            wait(131);
+
+        if bank.clickItem('Jug of water') then
+          while not inventory.FindItem('Jug of water') do
+            wait(142);
+
+        //wait(randomrange(1800, 2000));
+
+        if inventory.FindItem('Grapes') and inventory.FindItem('Jug of water') then
+          if bank.close then
+          begin
+            wait(randomrange(500, 800));
+            writeln('banking done');
+            exit;
+          end;
+
+      end;
+    end;
+end;
+
+begin
+  while rsclient.IsLoggedIn do
+    makewine;
+end.

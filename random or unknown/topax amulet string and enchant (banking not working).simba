@@ -1,0 +1,165 @@
+program topazamuletstringerandenchanter; //downstairs lumby bank, items in same bank slot
+{$define srl_use_remoteinput}
+{$i srl/osr.simba}
+
+var
+ spellx, spelly, dtm, bamulets, tamulets, burnDTM, unstrungdtm, wooldtm: integer;
+ bwool, uamulet: trsbankwithdrawitem;
+ amulets: trsbankdeposititem;
+ bankcolor: tcts2color;
+
+function findspell: boolean;
+var
+  x, y: integer;
+begin
+  if finddtm(dtm, spellx, spelly, inventory.bounds) then
+    mouse.Move(spellx, spelly);
+
+
+    result:= mainscreen.IsUpText('Cast Lvl-3', 100);
+end;
+
+function ClickChest: boolean;
+var
+  TPA: TPointArray;
+  timerr: tstopwatch;
+begin
+  timerr.start;
+  if srl.FindColors(TPA, bankcolor, mainscreen.Bounds) then
+  begin
+    mouse.move(TPA.Bounds.Middle);
+    if mainscreen.IsUpText('Bank') or mainscreen.IsUpText('Cast') then
+    begin
+      mouse.click(mouse_left);
+      if mainscreen.DidRedClick then
+      begin
+        wait(randomrange(500, 1000));
+        result:= bank.IsOpen;
+        end;
+    end;
+  end;
+end;
+
+function bankstuff: boolean;
+var
+  x, y, woolx, wooly, amx, amy: integer;
+begin
+  if not bank.isopen then
+  begin
+    clickchest;
+    wait(randomrange(300, 500));
+  end;
+
+  if bank.isopen and finddtm(burndtm, x, y, inventory.bounds) then
+  begin
+    bank.DepositItem(amulets, true);
+
+    wait(randomrange(300, 500));
+  end;
+
+  if not inventory.FindItem(uamulet.Item) then
+  begin
+    {if bank.FindItem(uamulet.Item) then
+      bank.WithdrawItem(uamulet, true); }
+
+    if finddtm(unstrungdtm, amx, amy, mainscreen.Bounds) then
+      mouse.click(amx, amy, mouse_left);
+
+    wait(randomrange(300, 500));
+  end;
+
+  if not inventory.FindItem(bwool.Item) then
+  begin
+    {if bank.FindItem(uamulet.Item) then
+      bank.WithdrawItem(bwool, true);}
+
+    if finddtm(wooldtm, woolx, wooly, mainscreen.Bounds) then
+      mouse.click(woolx, wooly, mouse_left);
+
+    wait(randomrange(300, 500));
+  end;
+
+  wait(100);
+
+  if (inventory.Countitem(uamulet.Item) = 13) and (inventory.countitem(bwool.Item) = 13) then
+  begin
+    writeln('withdrawing complete. closing bank.');
+    bank.close;
+  end;
+
+  result:= bank.IsOpen;
+
+end;
+
+procedure freeDTMs;
+begin
+  freedtm(dtm);
+  freedtm(burndtm);
+end;
+
+procedure run;
+begin
+  if inventory.FindItem(amulets.Item) then
+    bankstuff;
+
+  inventory.use('Ball of wool', 'Topaz amulet (u)');
+  wait(randomrange(1000, 1200));
+
+
+  if make.IsOpen then
+    keyboard.PressKey(vk_space);
+
+  while inventory.CountItem('Topaz amulet') < 13 do
+    wait(71);
+
+  repeat
+
+    if not gametabs.open(ersgametab.MAGIC) then
+      gametabs.open(ersgametab.MAGIC);
+
+    if findspell then
+      mouse.click(mouse_left);
+
+    while inventory.IsOpen = false do
+      wait(11);
+
+    bamulets:= inventory.Countitem('Burning amulet(5)');
+    if inventory.FindItem('Topaz amulet') then
+    begin
+      inventory.ClickItem('Topaz amulet');
+    end else
+      bankstuff;
+
+    while (gametabs.GetCurrentTab = ersgametab.INVENTORY) and inventory.FindItem('topaz amulet') do
+      wait(11);
+
+    writeln(bamulets);
+
+  until(bamulets = 13);
+
+  if (inventory.countitem(amulets.Item) = 13) then
+    bankstuff;
+end;
+
+begin
+  srl.setup;
+  addonterminate('freedtms');
+
+  bankcolor:= CTS2(1055079, 2, 0.22, 1.26);
+  bwool.Item:= 'Ball of wool';
+  bwool.Noted:= false;
+  bwool.Quantity:= 13;
+  uamulet.Item:= 'Topaz amulet (u)';
+  uamulet.Noted:= false;
+  uamulet.Quantity:= 13;
+  amulets.Item:= 'Burning amulet(5)';
+  amulets.Quantity:= 13;
+
+  dtm:= DTMFromString('m1gAAAHic42JgYPBlYmAIgOJgIA5kgoj5ALEnlAbxLRkZGEyA2IwRwrYCYjsgtoayzaHy55gZGH5942F4FmiEQrczMqLQxAJGIjECAAAZJxQU');
+  burnDTM:= DTMFromString('maQEAAHicE2RgYHBgYmDwhGJ3IHYDYicmiLgNEFsj0TC2LVQNSK0dEBsxMjCoALE6EOsBsSEQWwKxNRBbAbEpEBsDsQEQa0PVKkKxEhCbA3FzdTVDsrcCGOcGKjCEWUozHFRoYNi+Zg3DpTOnGTYsXcIwtcCAIcNdgSHAWoyhMkqdoTRcmaE9TQvMB6mlBmCkAsYAALbJG8E=');
+  woolDTM:= DTMFromString('mPwEAAHic42dgYOgB4slQPAWIJwBxHxB3A3EnELcBcTMQN0JxE1QepI6LkYGBDYg5gZgXiAWAWBCIRYBYDMrmB2IeqBp2IGYCYmYgrijMY4iLCGWws7RkkBIVBWMLU1MGR1tbBnMgPXfyBIZ9W9YzvHx0m+Hl4zsMr549ZNi0YglQvJ+BEsBIAUYDAAukHjg=');
+  unstrungDTM := DTMFromString('mKgEAAHic42NgYAgH4mggjgHiWCiOgoqHAnEwEAdBcShUPBKIuRgZGNiAmBOIuYGYF4j5kTAvVBwkzw5VC8IHFRoYEqIiGSoKCxlaa2sYZk+axLBy/nyGCydPMjy8e5fh0b17DLeuXGE4d+wYw/J5cxl6W1rAaskFjGRiVAAAVPsfwQ==');
+  repeat
+    run;
+  until(not(rsclient.IsLoggedIn));
+end.

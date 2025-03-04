@@ -1,0 +1,63 @@
+program Pizzacooker; //F2P, edgeville. could use timer for gate and door?
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+{
+gate WALKER coords: [4128, 2444]
+door WALKER coords: [4124, 2460]
+range WALKER coords: [4121, 2464]
+banker WALKER coords: [4186, 2484]
+
+
+  }
+
+var
+  walkit: TRSWalker;
+
+
+
+
+procedure cookpizza;
+begin
+  if inventory.FindItem('Uncooked pizza') then
+  begin
+    if inventory.ClickItem('Uncooked pizza') then
+    begin
+      mouse.move(Minimap.PointToMsBox(walkit.WorldToMM([4118, 2444])));
+      if mainscreen.IsUpText('Cook') then
+      begin
+        mouse.click(mouse_left);
+
+        if mainscreen.DidRedClick then
+          while not make.IsOpen do wait(150);
+
+        if make.IsOpen then
+          make.select(0, -1, false);
+
+        while inventory.FindItem('Uncooked pizza') do wait(150);
+
+        if not inventory.FindItem('Uncooked pizza') then
+          writeln('Cooked all pizzas');
+          //dobank;
+      end;
+    end;
+  end else
+  begin
+    writeln('Out of uncooked pizzas. Banking..');
+  end;
+end;
+
+begin
+  walkit.Setup('world');
+  srl.Setup;
+  while rsclient.IsLoggedIn do
+  begin
+    drawpos(walkit);
+    rsclient.Image.DrawBox(Minimap.PointToMsBox(walkit.WorldToMM([4128, 2444]), minimap.GetCompassAngle), clred);
+    rsclient.Image.DrawBox(Minimap.PointToMsBox(walkit.WorldToMM([4124, 2460]), minimap.GetCompassAngle), clyellow);
+    rsclient.Image.DrawBox(Minimap.PointToMsBox(walkit.WorldToMM([4121, 2464]), minimap.GetCompassAngle), clblue);
+    //walkit.WorldToMM([4128, 2444], clred)
+    cookpizza;
+  end;
+end.

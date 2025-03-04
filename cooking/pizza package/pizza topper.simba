@@ -1,0 +1,90 @@
+program toppingputter;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+var
+  items: TRSItemArray:= ['Anchovies', 'Plain pizza', 'Anchovy pizza'];
+  walkit: TRSWalker;
+  bankbox: tbox;
+//banker walker coords = 4188, 2491
+
+function dobank: boolean;
+begin
+  mouse.move(bankbox.Middle);
+  if mainscreen.IsUpText('Bank Bank booth') then
+  begin
+    writeln('Fouund bank booth');
+    mouse.Click(mouse_left);
+    if mainscreen.DidRedClick then
+      if bank.IsOpen then
+        writeln('Opened bank');
+  end;
+
+  if bank.IsOpen then
+    if bank.DepositAll then
+      if not inventory.IsFull then
+        writeln('deposited');
+
+  if not inventory.IsFull then
+    if bank.WithdrawItem([items[1], 14, false], true) then
+      if bank.WithdrawItem([items[0], 14, false], true) then
+        if inventory.IsFull then
+          writeln('banking complete!');
+
+  //banking shit
+  result:= bank.close;
+end;
+
+procedure drawtiles;
+var
+  banktile: tpoint;
+begin
+  banktile:= walkit.WORLDtomm([4188, 2491]);
+  bankbox:= minimap.PointToMsbox(banktile, minimap.GetCompassAngle(false));
+  rsclient.Image.DrawBoxfilled(bankbox, false, clred);
+  wait(150);
+  rsclient.image.clear;
+end;
+
+procedure puttopping;
+begin
+  if inventory.FindItems([items[0], items[1]]) then
+  begin
+    if inventory.clickitem(items[0], 'Use') then
+    begin
+      writeln('adding toppings');
+      if inventory.ClickItem(items[1], 'Use') then
+        while not make.IsOpen do
+          wait(150);
+
+      if make.IsOpen then
+        make.Select(0, -1, false);
+
+      while inventory.FindItem(items[0]) do
+        wait(150);
+
+      if inventory.CountItem(items[2]) = 14 then
+        writeln('all toppings added');
+
+      if dobank then
+        writeln('Reset and ready!');
+    end;
+  end else
+  begin
+    dobank;
+  end;
+end;
+
+begin
+  walkit.Setup('world');
+  while rsclient.IsLoggedIn do
+  begin
+    drawpos(walkit);
+    drawtiles;
+    //puttopping;
+  end;
+
+
+
+end.

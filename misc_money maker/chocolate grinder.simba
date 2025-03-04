@@ -1,0 +1,217 @@
+{for use in upstairs lumby bank
+zoomed in all the way, camera angle up, fixed layout and max brightness}
+program chocolategrinder;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl-f/osr.simba}
+
+var
+  timeranstr: string;
+  timeran: integer;
+  choccybarDTM, choccydustDTM, bankclosedtm: integer;
+
+procedure setDTMs;
+begin
+  choccybarDTM:= DTMFromString('mFQEAAHic42VgYMhmYmAoBOIcIM4A4mQgToGyQXJ5QFwExKVAXAHExUD8BKjvLhDfBuL7DBD+CyB+BcRvoPgFVPwhED8A4nBLZSDJiIFL/YwYEh3U4Xx3A2kGIwUBsDg5ANMGwhgFAADSShW1');
+  choccydustdtm:= DTMFromString('m1gAAAHic42JgYMhhYmAoA+I8IM4G4lQgToHSmUwQ+UIg5mZkYGAHYhYgZgZiTkaIGC8Q8wExP5Rf6G3A4KAlzZDrqQs0nZEh0UGdodTPiKE1ypKhKdwcjFOdtRiIBYxEYgQAAPR7DOA=');
+  bankclosedtm:= DTMFromString('mPwEAAHic42dgYHjKyMDwHorfAPELIL4PxE+A+C4U3wPix0D8DIhfIakXB+qXAGJhIOZDw8JQOXkgVkDDMgwgwMjgbqcHxpNaC1BwR20WGAd7mjNYGqnBsY62FoO9hRYDJYCRAowGALPyHRo=');
+end;
+
+function openbanks: boolean;
+var
+  x, y: integer;
+begin
+  if findcolortolerance(x, y, 8624552, box(222, 34, 316, 95), 2) then
+  begin
+    Writeln('found bank');
+    mouse.move(x, y);
+    if mainscreen.IsUpText('Bank') then
+      mouse.click(mouse_left);
+    if mainscreen.DidRedClick then
+    begin
+      writeln('red click confirmed');
+      wait(1000);
+      if bank.IsOpen(true) or bank.FindItem('chocolate bar') then
+      begin
+        result:= true;
+        Writeln('bankscreen is open');
+      end;
+    end;
+  end;
+end;
+
+function depositdst: boolean;
+var
+  x, y: integer;
+begin
+  if inventory.FindItem('chocolate dust') then
+  begin
+    Writeln('found dust');
+    inventory.ClickItem('chocolate dust');
+    wait(randomrange(800, 1000));
+
+    if (inventory.Count = 1) then
+    begin
+      writeln('dust deposited');
+      result:= true;
+    end else
+
+    begin
+      Writeln('dust not deposited; trying again');
+      inventory.ClickItem('chocolate dust');
+      wait(randomrange(200, 500));
+    end;
+  end;
+end;
+
+
+function withdrawbars: boolean;
+begin
+  if not inventory.finditem('chocolate bar') then
+  begin
+    writeln('no bars found in inventory');
+
+    if not bank.IsOpen(true) then
+    begin
+      Writeln('bankscreen not open');
+      exit;
+    end else
+
+    begin
+      writeln('bankscreen is open; grabbing bars');
+      bank.WithdrawItem(['chocolate bar', 27, false], true);
+      wait(randomrange(500, 1200));
+      if inventory.finditem('chocolate bar', true) and (inventory.CountItem('chocolate bar') = 27) then
+      begin
+        Writeln('grabbed bars; closing bank');
+        bank.Close(false);
+        Result:= true;
+      end;
+    end;
+
+  end else
+    Writeln('inventory has bars');
+    exit;
+end;
+
+procedure dobank;
+begin
+  if (inventory.CountItem('chocolate bar') = 0) then
+  begin
+    openbanks;
+    wait(500);
+
+    depositdst;
+    wait(1200);
+
+    withdrawbars;
+    wait(300);
+  end;
+end;
+
+
+{procedure depositdust;   //need to add failsafes. Bot gets stuck at bank screen randomly, and will sometimes try to grind choc with bank open.
+var
+  x, y: integer;
+begin
+  setDTMs;
+  //if inventory.IsFull
+  if findcolortolerance(x, y, 8624552, box(222, 34, 316, 95), 2) then
+  begin
+    writeln('found bank');
+    mouse.click(x, y, mouse_left);
+    wait(randomrange(500, 1000));
+
+    if bank.isopen(true) then
+    begin
+      WriteLn('bank is open');
+      if FindDTM(choccydustdtm, x, y, inventory.Bounds) then
+      begin
+        writeln('depositing');
+        mouse.click(x, y, mouse_left);
+        wait(randomrange(300, 600));
+        writeln('grabbing bars');
+        if FindDTM(choccybarDTM, x, y, 65, 85, 472, 281) then
+        begin
+          mouse.click(x, y, mouse_left);
+          wait(randomrange(450, 800));
+          writeln('withdrew choccy bars');
+          if finddtm(bankclosedtm, x, y, mainscreen.Bounds) then
+          begin
+            WriteLn('closing bank');
+            mouse.click(x, y, mouse_left);
+          end else
+            writeln('my bot is still broken');
+            Exit;
+        end;
+      end else
+      begin
+        writeln('no chocolate dust in inventory');
+      end;
+    end else
+    begin
+      writeln('did not detect bankscreen');
+      bank.Close(true);
+    end;
+  end;
+end; }
+
+procedure chop2;
+begin
+  if inventory.FindItem('chocolate bar', false) then
+  begin
+    inventory.use('knife', 'chocolate bar');
+    repeat
+      wait(500);
+      writeln('chopping...');
+    until(inventory.FindItem('chocolate bar', false) = false);
+  end else
+  begin
+    writeln('no chocolate bars. banking');
+    exit;
+  end;
+end;
+
+{procedure ChopChop;
+var
+  x, y, bars: integer;
+begin
+  //setDTMs;
+  repeat
+    bars:= inventory.countitem('chocolate bar');
+    if finddtm(choccybarDTM, x, y, inventory.bounds) then
+    begin
+      writeln('chocolate detected');
+      inventory.ClickItem('knife');
+      wait(400);
+      if inventory.IsSlotSelected(0) then
+      begin
+        writeln('clicked knife');
+        mouse.click(x, y, 1);
+        wait(600);
+      end else
+      begin
+        writeln('knife not clicked; trying again.');
+        mouse.Move(randomrange(575, 580), randomrange(278, 232));
+        inventory.clickitem('knife');
+      end;
+    end;
+  until (finddtm(choccybardtm, x, y, inventory.bounds) = false);
+end; }
+
+begin
+  cleardebug();
+  setDTMs;
+  //choccybarDTM:= DTMFromString('mAAEAAHic42FgYMhhYmAoAuJcIM4E4mQgTgHidCDOBuICIC4B4nIo/Rio5x4Q3wbi+0D8BIhfAPErIH4LpZ8B8SOovJemCIOZLB+QxcgQayIFprFhWQF2qDrSAHbTcGNkAACB0BIr');
+  //choccydustdtm:= DTMFromString('mFQEAAHic42VgYMhmYmDIAeIMIE6B4lQgToeK5wNxARCXQDGI/Ryo7z4QPwHipwwQ/ksgfg3FL4D4GVTuERA/AOIgPQkgyQjHIH6yhSyYnWAmzeClKYIiD8GkA3QTiMEoAABI0BR9');
+
+  repeat
+    chop2;
+    wait(randomrange(500, 1500));
+    dobank;
+    timeran:= gettimerunning;
+    writeln(SRL.TimeRunning(time_formal_long));
+  until(timeran >= 21600000);
+
+  FreeDTM(choccybarDTM);
+  FreeDTM(choccydustDTM);
+end.

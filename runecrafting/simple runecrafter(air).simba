@@ -1,0 +1,31 @@
+program simpleRunecrafter; //start with air, have tiara equipped and essence in bank.
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+const
+  dostuff = false;
+
+var
+  walkit: TRSWalker;
+
+procedure walkertest;
+begin
+  if walkit.IsWalkable(worldweb.LOCATION_AIR_RUINS, walkit.GetMyPos, minimap.GetCompassAngle(false)) then
+  begin
+    writeln('Path is walkable!');
+  end else
+    writeln('path is NOT walkable!');
+end;
+
+
+begin
+  srl.setup;
+  options.GetZoomLevel;
+  walkit.Setup('world');
+
+  walkertest;
+
+  //if dostuff then
+    walkit.webwalk(worldweb.LOCATION_AIR_RUINS);
+
+end.

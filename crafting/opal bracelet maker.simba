@@ -1,0 +1,190 @@
+program opalbraceletmaker;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i SRL/osr.simba}
+
+const
+  OnScreenDebug = True;
+  furnaceCol = 3953524;
+  furnaceTol = 3;
+
+var
+  walkit: TRSWalker;
+  startingbars, ballsmade, levelsgained, startxp, xpgained, currentxp, tripticker: integer;
+  bankcolor: TCTS2Color;
+  banksearchbox: tbox;
+  silverbar, Opal: TRSBankWithdrawItem;
+  braceletdtm: integer;
+
+procedure setupp;
+begin
+  srl.Setup;
+  walkit.setup('world');
+  mainscreen.SetHighestPitch;
+  options.SetZoomLevel(randomrange(45, 55));
+  startxp:= stats.getskillinfo(ersskill.SMITHING).XP;
+  bankcolor:= CTS2(7903141, 3, 0.06, 1.59);
+  banksearchbox:= box(224, 151, 294, 208);
+  silverbar.Item:= 'Silver bar';
+  silverbar.Noted:= false;
+  silverbar.Quantity:= 13;
+  opal.Item:= 'Opal';
+  opal.Noted:= false;
+  opal.Quantity:= 13;
+  braceletDTM := DTMFromString('m1gAAAHic42JgYLAEYnMgtgJiCyB2gGIQ2wSI9YFYB4h/AvE3IH6HhH8DMQMjAwMTFIPYNy9fZjh6dAnD1J5uiAAQ37pyBc5GYOIAui5cGAEAcQUQ2w==');
+end;
+
+procedure scriptstatus(status: string);
+begin
+  writeln(status);
+end;
+
+function walktofurnace: boolean;
+begin
+  scriptstatus('walking to furnace');
+  result:= walkit.WalkBlind([4239, 2452], 5);
+end;
+
+function finditemsbank: boolean;
+begin
+  if bank.FindItem('Silver bar') and bank.FindItem('Opal') then
+  begin
+    result:= true;
+  end else
+    result:= false;
+end;
+
+function grabbars: boolean;
+begin
+  if bank.isopen and finditemsbank then
+  begin
+    writeln('found opal and silver bar, withdrawing');
+
+    bank.WithdrawItem(['Silver bar', -1, false], true);
+    bank.close;
+    result:= inventory.FindItems([silverbar.Item, opal.Item]);
+  end;
+end;
+
+procedure openbank;
+var
+  x, y: integer;
+  TPA: TPointArray;
+begin
+  rsclient.image.drawbox(banksearchbox, clgreen);
+  scriptstatus('opening bank');
+  if srl.FindColors(tpa, bankcolor, mainscreen.Bounds) then
+  begin
+    mouse.move(TPA.Bounds.Middle);
+    if mainscreen.IsUpText('Bank') then
+    begin
+      mouse.click(mouse_left);
+      if mainscreen.DidRedClick then
+      begin
+        repeat
+          wait(121);
+        until(bank.IsOpen);
+      end;
+    end else
+    begin
+      exit;
+    end;
+  end;
+end;
+
+function walktobank: boolean;
+var
+  x, y: integer;
+begin
+  if (walkit.getmypos.DistanceTo([4194, 2470]) > 10) then
+  begin
+    scriptstatus('walking to bank');
+    walkit.WebWalk([4194, 2470], 3, 5);
+  end else
+  begin
+    writeln('we are at bank');
+  end;
+  result:= walkit.WebWalk([4194, 2470], 6, 1);
+end;
+
+procedure makebracelets;
+var
+  x, y: integer;
+begin
+  //writeln(trstitledinteface.GetTitle);
+  if finddtm(braceletdtm, x, y, mainscreen.bounds) then
+    writeln('Can make');
+
+end;
+
+function clickfurnace: boolean;
+var
+  x, y: integer;
+begin
+  scriptstatus('clicking furnace');
+  if findcolortolerance(x, y, furnaceCol, mainscreen.Bounds, furnaceTol) then
+  begin
+    mouse.move(x, y);
+    if mainscreen.IsUpText('Smelt') then
+      mouse.click(x, y, mouse_left);
+
+    if mainscreen.DidRedClick then
+    begin
+      scriptstatus('making bracelets');
+
+      if finddtm(braceletdtm, x, y, mainscreen.bounds) then
+        mouse.Click(x, y, mouse_left);
+
+      if mainscreen.didredclick then
+      begin
+
+        while inventory.FindItem(silverbar.Item) do
+          wait(randomrange(50, 100));
+
+      end;
+
+    end else
+    begin
+      scriptstatus('did not click the furnace. Trying again.');
+      //attempt:= attempt+1;
+    end;
+  end;
+end;
+
+procedure run;
+begin
+
+  if inventory.finditems(['Silver bar', 'Opal']) and walktofurnace then
+  begin
+    clickfurnace;
+  end;
+
+  if make.isopen then
+  begin
+    makebracelets;
+  end;
+
+  if not(inventory.FindItem('Steel bar')) then
+  begin
+    if walktobank then
+    begin
+      openbank;
+    end;
+  end;
+
+  while bank.isopen and (inventory.FindItem('Steel bar') = false) do
+  begin
+    grabbars;
+  end;
+
+
+  tripticker:= tripticker + 1;
+end;
+
+
+
+begin
+  //setupp;
+  repeat
+    makebracelets;
+  until(not(rsclient.IsLoggedIn));
+end.

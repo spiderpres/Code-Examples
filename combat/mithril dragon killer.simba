@@ -1,0 +1,90 @@
+program mithrildragons;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+{
+
+kills blue dragons using mage or ranged safespot
+
+to add:
+-banking via teleports & walking
+-bone collection
+-eating
+-ammo checks
+
+}
+
+
+const
+  drawdebug = false;
+
+var
+  walkit: TRSWalker;
+  startpos, safespot: tpoint;
+  safespotbox: tbox;
+  dragoncol: tcts2color;
+
+function gotosafespot: boolean;
+begin
+  result:= walkit.WalkBlind(safespot);
+end;
+
+function findHPBarss: boolean;
+begin
+  result:= (length(mainscreen.FindHPBars) > 0);
+end;
+
+procedure killdragons;
+var
+  TPA: TPointArray;
+  dragonbox: tbox;
+begin
+  if srl.findcolors(TPA, dragoncol, mainscreen.bounds) then
+  begin
+    dragonbox:= tpa.Bounds;
+    rsclient.image.DrawBox(dragonbox, clred);
+    mouse.move(dragonbox.Middle);
+    if mainscreen.IsUpText('Attack Blue') then
+      mouse.click(mouse_left);
+
+    if mainscreen.DidRedClick then
+      while not findhpbarss do
+        wait(150);
+
+    if findhpbarss then
+      if gotosafespot then
+        writeln('Attacked dragon, walked back to safe spot!');
+
+  end
+end;
+
+
+procedure setupp;
+begin
+  walkit.Setup('world');
+
+  startpos:= walkit.GetMyPos;
+  safespot:= [6228, 569];
+  safespotbox:= minimap.PointToMsBox(walkit.WorldToMM(startpos), minimap.GetCompassAngle(false));
+  dragoncol:= CTS2(9597526, 7, 0.12, 0.79);
+
+
+
+  addonterminate('wipe');
+end;
+
+begin
+  setupp;
+  while drawdebug and rsclient.IsLoggedIn do
+  begin
+    drawpos(walkit);
+    lineprinter([tostr(walkit.IsWalkable(safespot, walkit.GetMyPos, minimap.GetCompassAngle(false)))], [3, 313]);
+    safespotbox:= minimap.PointToMsBox(walkit.WorldToMM(safespot), minimap.GetCompassAngle(false));
+    rsclient.image.DrawBox(safespotbox, clwhite);
+  end;
+
+  killdragons;
+  while findhpbarss do
+    wait(50);
+end.

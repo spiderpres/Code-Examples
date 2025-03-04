@@ -1,0 +1,28 @@
+program bettermelee;
+{$define srl_use_remoteinput}
+{$i srl/osr.simba}
+
+{                  goal:
+              ~ attack stuff
+              ~ pick up loot
+              ~ alch loot
+              ~ eat when low health
+              ~ bank for more food
+}
+
+var
+  walkit: TRSWalker;
+
+function isattacking: boolean; //are we attacking?
+begin
+  //check for HP bar on top of player?
+end;
+
+function isinzone:boolean; //are we in bounds of monster area?
+begin
+end;
+
+
+
+begin
+end.

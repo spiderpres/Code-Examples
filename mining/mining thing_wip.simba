@@ -1,0 +1,307 @@
+program varrockmineandbank;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+{
+start anywhere (that varrock can be walked to) with no inventory and pickaxe wielded
+specify which ore to mine, the bot will mark current
+position and use that to walk back from the bank.
+
+can add const for where to mine in webgraph, allowing flexibility in AIO but complicating banking.
+
+can we automatically find bank? is it worth doing outside of a proof of concept? idk
+
+really need to figure out forms on this stuff. Need to check flight's code to see how he did it.      \inb4 plagirism jokes
+
+                                          ^ checked, shit's complicated looking.
+
+
+}
+const
+  paintscreen = true;
+  pick_axe = 'Iron pickaxe';
+  ore = 'Clay';
+  //Case sensitive
+  mining_location = 'Varrock East';
+  //for later implementation, probably using a case..of.
+var
+  totaloremined, rockcount: integer;
+  startingposition: tpoint;
+  walkit: TRSWalker;
+  pickaxee: TRSBankWithdrawItem;
+
+procedure losetrack;
+begin
+  rsclient.image.clear;
+  case random(500) of
+    0:
+      begin
+        writeln('waiting short');
+        wait(randomrange(3000, 4500));
+      end;
+    1 .. 9:
+      begin
+        writeln('not losing track');
+      end;
+    10:
+      begin
+        Writeln('adjusting angle');
+        minimap.SetCompassAngle(randomrange(0, 359), 10);
+      end;
+    11:
+      begin
+        writeln('waiting long');
+        wait(randomrange(10000, 20000));
+      end;
+    12 .. 499:
+      begin
+        writeln('not losing track');
+      end;
+  end;
+end;
+
+function depositore: boolean;
+var
+  TPA2, bankbooth: TPointArray;
+  ATPA2: T2DPointArray;
+begin
+  if srl.FindColors(TPA2, CTS2(7440528, 6, 0.22, 0.26), mainscreen.Bounds) then
+  begin
+    atpa2 := tpa2.cluster(1);
+    writeln('assigned ATPA');
+    ATPA2.FilterSize(5, 100);
+    ATPA2.SortByMiddle(mainscreen.Center);
+    writeln('bank atpa filtered and sorted');
+    rsclient.image.DrawATPA(ATPA2);
+    for bankbooth in ATPA2 do
+    begin
+      mouse.move(bankbooth[random(length(bankbooth))]);
+      if mainscreen.IsUpText('Bank Bank booth', 100) then
+      begin
+        mouse.click(mouse_left);
+        writeln('clicking bankbooth');
+        if mainscreen.DidRedClick then
+        begin
+          writeln('red click confirmed');
+          wait(randomrange(2500, 3000));
+          if bank.IsOpen then
+          begin
+            writeln('depositing');
+            bank.DepositAll;
+            wait(randomrange(75, 150));
+            writeln('withdrawing pickaxe');
+            bank.WithdrawItem(pickaxee, false);
+            writeln('closing bank');
+            bank.Close;
+            wait(50);
+            //slight pause so the script doesn't click bank again (hope this works..)
+            inventory.ClickItem(pick_axe);
+            break;
+            if inventory.isfull then
+            begin
+              atpa2.Remove(TPA2, true);
+              writeln('banking failed');
+              rsclient.image.clear;
+              result := true;
+            end
+            else
+            begin
+              atpa2.Remove(TPA2, true);
+              writeln('banking successful');
+              rsclient.image.clear;
+              result := false;
+              exit;
+            end;
+          end;
+        end
+        else
+        begin
+          writeln('did not red click; terminating script.');
+          terminatescript;
+        end;
+      end;
+      if inventory.isfull = false then
+        exit;
+    end;
+  end;
+end;
+
+procedure dobank;
+begin
+  //walktocastle
+  //climbstairs(color, tol, hue, sat, uptext)
+  //deposit *handles walking to and from stairs*
+  //climbstairs(vars again)
+  //walk to mine using startingposition
+  walkit.WebWalk(worldweb.LOCATION_VARROCK_WBANK, 2, 1);
+  minimap.SetCompassAngle(270, 2);
+  Wait(randomrange(500, 1500));
+  depositore;
+  if (minimap.GetHPLevel <= 50) then
+  begin
+    writeln('health is above 50, walking to west mine');
+    walkit.webwalk(worldweb.LOCATION_VARROCK_WMINE, 2, 1);
+  end
+  else
+  begin
+    writeln('health is below 50, walking to east mine');
+    walkit.WebWalk([4538, 2929], 2, 1);
+  end;
+  minimap.SetCompassAngle(0, 10);
+end;
+
+function isincombat: boolean;
+begin
+  rsclient.image.DrawBox(mainscreen.GetPlayerBox, clgreen);
+end;
+
+procedure minestuff(uptext: string; inv_ore: TRSItem; clr, tol: int32; hmod, smod: extended);
+//finds input colors on mainscreen, assigns & sorts TPAs and ATPAs then checks uptext before clicking
+//once clicked, sets a timer and checks chatbox to determine if we are mining
+//if timer runs out and the other values were not met then exit
+var
+  tpa, rock: tpointarray;
+  atpa: t2dpointarray;
+  timerr: tstopwatch;
+  didmine: boolean;
+begin
+  if srl.findcolors(TPA, CTS2(clr, tol, hmod, smod), mainscreen.bounds) then
+  begin
+    if paintscreen then
+      rsclient.image.DrawTPA(tpa, clblue);
+    writeln('color match detected');
+    atpa := tpa.cluster(5);
+    writeln('assigned ATPA');
+    ATPA.FilterSize(75, 1000);
+    ATPA.SortByIndex(Mainscreen.Center);
+    writeln('sorting tpoints');
+    if paintscreen then
+      rsclient.image.DrawATPA(atpa, [clred]);
+    for rock in ATPA do
+    begin
+      if inventory.IsFull then
+      begin
+        dobank;
+      end;
+      rockcount := inventory.countitem(inv_ore);
+      losetrack;
+      timerr.start;
+      writeln('moving mouse');
+      mouse.move(rock[random(length(rock))]);
+      if (mainscreen.isuptext(uptext, 100)) then
+      begin
+        writeln('uptext detected; clicking rock');
+        mouse.Click(mouse_left);
+        if not mainscreen.DidRedClick then
+        begin
+          writeln('we didn' 't click the rock');
+          exit;
+        end
+        else
+        begin
+          wait(randomrange(800, 1000));
+          writeln('red click detected; walking to rock & waiting for chat');
+          while minimap.IsPlayerMoving do
+          begin
+            writeln('player is walking to rock');
+            wait(50);
+          end;
+          if (chat.getmessage(7, [chat_color_black]) = 'You swing your pick at the rock.') then
+          begin
+            writeln('chat: "' + chat.getmessage(7, [chat_color_black]) + '"');
+            while ((chat.getmessage(7, [chat_color_black]) = 'You swing your pick at the rock.') and (timerr.ElapsedTime < 40000)) do
+              repeat
+                if (minimap.GetHPLevel > 50) then
+                begin
+                  writeln('health low, banking');
+                  dobank;
+                end;
+
+                writeln(chat.getmessage(7, [chat_color_black]));
+                wait(randomrange(50, 200));
+                writeln('starting ore: ' + inttostr(rockcount) + '; current ' + ore + ' ore: ' + inttostr(inventory.CountItem(inv_ore)));
+                writeln(inttostr(timerr.elapsedtime));
+                rsclient.image.DrawBox(chat.GetLineBoxes()[7], clblue);
+                writeln(totaloremined);
+                losetrack;
+              until ((timerr.ElapsedTime > 20000) or (chat.getmessage(7, [chat_color_black]) = 'You manage to mine some ' + lowercase(ore) + '.'));
+          end
+          else
+          begin
+            writeln('something went wrong');
+            timerr.Reset;
+            exit;
+          end;
+          if (chat.getmessage(7, [chat_color_black]) = 'You manage to mine some ' + lowercase(ore) + '.') then
+            totaloremined := totaloremined + 1;
+          timerr.Reset;
+        end;
+      end
+      else
+      begin
+        if not mainscreen.IsUpText(uptext, 100) then
+        begin
+          writeln('uptext not detected');
+          timerr.Reset;
+          exit;
+        end;
+      end;
+    end;
+  end
+  else
+  begin
+    writeln('no ' + ore + ' detected; searching again');
+    exit;
+  end;
+end;
+
+procedure loseyourself; //randomly afks
+begin
+  case random(99) of
+    0..4: begin writeln('antiban: not afk'); end;
+    5: begin writeln('andiban: small afk'); wait(randomrange(3000, 8000)); end;
+    6..29: begin writeln('antiban: no afk'); end;
+    30: begin writeln('antiban: medium afk'); wait(randomrange(10000, 15000)); end;
+    31..59: begin writeln('antiban: not afking'); end;
+    60: begin writeln('andiban: big afk'); wait(randomrange(25000, 30000)); end;
+
+  end;
+end;
+
+procedure minee;
+begin
+  if inventory.IsFull then
+    dobank;
+  case ore of
+    'Iron': minestuff('Mine Iron', 'Iron ore', 2568780, 6, 0.09, 0.31);
+    'Mithril': minestuff('Mine Mithril', 'Mithril ore', 7426641, 13, 0.05, 0.05);
+    'Copper': minestuff('Mine Copper', 'Copper ore', 4613508, 8, 0.03, 0.09);
+    'Tin': minestuff('Mine Tin', 'Tin ore', 7763838, 4, 0.63, 0.13);
+    'Coal': minestuff('Mine Coal', 'Coal', 3097155, 4, 0.21, 0.42);
+    'Clay': minestuff('Mine Clay', 'Clay', 4621474, 16, 0.03, 0.58);
+    'Silver':
+  end;
+end;
+
+procedure setupp;
+begin
+  srl.Setup;
+  walkit.Setup('world');
+  pickaxee.Item := pick_axe;
+  pickaxee.Quantity := 1;
+  pickaxee.Noted := False;
+  startingposition := walkit.GetMyPos;
+  options.SetZoomLevel(randomrange(45, 55));
+  mainscreen.SetHighestPitch;
+  writeln('script init. completed; clearing inv. & grabbing pickaxe');
+  //if inventory.isfull then
+    dobank;
+end;
+
+begin
+  setupp;
+  isincombat;
+  repeat
+    minee;
+  until (not (rsclient.IsLoggedIn));
+end.

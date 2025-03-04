@@ -1,0 +1,414 @@
+program VinylMIOner;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+{
+    idea: what if there was procedure for resetting if the bot finds itself out of wack?
+    if certain criteria are not met then the script will check inventory status, if it is not empty
+    then it will go to the bank, deposit, and walk to the mine.
+
+    this may be outside of the scope of this script. I think simplification of this script and the
+    creation of a new, banking-oriented script would be better.
+
+    need to add position checks
+
+    playerX:= walkit.getmypos.x;
+    playerY:= walkit.getmypos.y;
+
+}
+
+const
+  ore = 'Mithril';
+  powermine = false;
+  paintscreen = true;
+  hideplayer = false;
+  hidechatbox = false;
+
+var
+  rockcount, totaloremined, startinglevel, levelsgained: integer;
+  startlev: int32;
+  walkit: TRSWalker;
+  user: TRSLoginPlayer;
+  script_status: string;
+
+procedure proggy;
+var
+  orexp, currentlev: integer;
+begin
+  case ore of
+    'Copper': orexp:= 17;
+    'Iron': orexp:= 35;
+  end;
+  if paintscreen then rsclient.image.DrawText('time running: ' + srl.TimeRunning, [5, 238], clmoneygreen);
+  if paintscreen then rsclient.image.DrawText('exp. gained: ' + inttostr(totaloremined * orexp), [5, 258], clmoneygreen);
+  if paintscreen then rsclient.image.DrawText('ore mined: ' + inttostr(totaloremined), [5, 278], clmoneygreen);
+  if paintscreen then rsclient.image.DrawText(script_status, [5, 302], clFuchsia);
+  writeln('time running: ' + srl.TimeRunning);
+  writeln('exp. gained: ' + inttostr(totaloremined * orexp));
+  writeln('ore mined: ' + inttostr(totaloremined));
+end;
+
+procedure MarkStatus(status: string);
+begin
+  //print script to screen
+  rsclient.Image.Clear;
+  proggy;
+  if hideplayer and paintscreen then rsclient.image.drawboxfilled(mainscreen.GetPlayerBox, false, clgreen);
+  if hidechatbox and paintscreen then rsclient.image.drawboxfilled(chat.Bounds, false, clgreen);
+
+  if paintscreen then rsclient.image.DrawText('script status:' + status, [5, 320], claqua);
+  writeln(status);
+end;
+
+function walkitlike: boolean;
+begin
+  Markstatus('walking to bank');
+  script_status:= 'procedure: walkitlike; doing: walking to bank';
+  if (minimap.GetCompassAngle > 6) then minimap.SetCompassAngle(0, 5);
+  result:= walkit.WebWalk(worldweb.LOCATION_FALADOR_EBANK);
+end;
+
+function italkit: boolean;
+begin
+  markstatus('walking to mining guild');
+  if (minimap.GetCompassAngle > 6) then minimap.SetCompassAngle(0, 5);
+  result:= walkit.webwalk(worldweb.LOCATION_MINING_GUILD);
+end;
+
+procedure ladderwalk;
+begin
+  if (minimap.GetCompassAngle > 6) then minimap.SetCompassAngle(0, 5);
+  walkit.WalkBlind([6750, 781], 1);
+end;
+
+function depositore: boolean;
+var
+  TPA2, bankbooth: TPointArray;
+  ATPA2: T2DPointArray;
+begin
+  script_status:= 'procedure: depositore; depositing: ' + ore + '; ';
+  if srl.FindColors(TPA2, CTS2(7899283, 6, 0.09, 0.43), box(209, 194, 378, 301)) then
+  begin
+    atpa2 := tpa2.cluster(1);
+    writeln('assigned ATPA');
+    ATPA2.FilterSize(5, 100);
+    ATPA2.SortByMiddle(mainscreen.Center);
+    markstatus('bank atpa filtered and sorted');
+    rsclient.image.DrawATPA(ATPA2);
+    script_status:= 'procedure: depositore; finding bankbooth;';
+    for bankbooth in ATPA2 do
+    begin
+      if inventory.isfull = false then
+      begin
+        markstatus('inventory is not empty, walking to mine.');
+        result:= italkit;
+        exit;
+      end;
+      mouse.move(bankbooth[random(length(bankbooth))]);
+      if mainscreen.IsUpText('Bank Bank booth', 100) then
+      begin
+        mouse.click(mouse_left);
+        markstatus('clicking bankbooth');
+        if mainscreen.DidRedClick then
+        begin
+          markstatus('red click confirmed');
+          wait(randomrange(2500, 3000));
+          if bank.IsOpen then
+          begin
+            markstatus('depositing');
+            bank.DepositAll;
+            markstatus('closing bank');
+            bank.Close;
+            wait(50); //slight pause so the script doesn't click bank again (hope this works..)
+            break;
+            if inventory.isfull then
+            begin
+              atpa2.Remove(TPA2, true);
+              markstatus('banking failed');
+              result:= true;
+            end else
+            begin
+              markstatus('banking successful');
+              result:= false;
+              exit;
+            end;
+          end;
+        end;
+      end;
+
+      if inventory.isfull = false then
+        exit;
+    end;
+  end;
+end;
+
+function inmine: boolean;
+begin
+  //result:= minimap.
+end;
+
+procedure bankordrop;
+var
+  oree: integer;
+  orre: TRSItem;
+  timarr: tstopwatch;
+  TPA, TPAA, ladder, ladderr: TPointArray;
+  atpa, ATPAA: t2dpointarray;
+begin
+  orre := ore + ' ore'
+  if (powermine = true) then
+  begin
+    markstatus('powermining selected; dropping ore');
+    repeat
+      timarr.Start;
+      inventory.ClickItem(ore + ' ore', 'Drop ' + ore + ' ore');
+      oree := inventory.CountItem(orre);
+    until ((oree = 0) or (timarr.ElapsedTime = 20000));
+  end
+  else
+  begin
+    writeln('banking selected; depositing ore');
+    minimap.SetCompassAngle(0, 5);
+    walkit.WalkBlind([6750, 781], 1);
+    wait(10000);
+    if srl.findcolors(TPA, CTS2(1859971, 6, 0.08, 3.26), box([112, 171], 35, 35)) then
+    begin
+      atpa := tpa.cluster(5);
+      writeln('assigned ATPA');
+      ATPA.FilterSize(10, 1000);
+      ATPA.SortByMiddle([112, 171]);
+      markstatus('ladder atpa filtered & sorted');
+      rsclient.image.DrawATPA(ATPA);
+      for ladder in ATPA do
+      begin
+        mouse.move(ladder[random(length(ladder))]);
+        if mainscreen.IsUpText('Climb-up Ladder', 100) then
+        begin
+          mouse.click(mouse_left);
+          if mainscreen.DidRedClick then
+          begin
+            wait(randomrange(6000, 7000));
+            markstatus('climbing ladder');
+            walkitlike;
+            depositore;
+            if depositore = false then
+            begin
+              italkit;
+              wait(1000);
+              rsclient.image.DrawBox(box(102, 103, 226, 197), clblue);
+              if srl.findcolors(TPAa, CTS2(1198950, 5, 0.11, 3.04), box(102, 103, 226, 197)) then
+              begin
+                atpaa := tpaa.cluster(2);
+                writeln('assigned ATPA');
+                ATPAa.FilterSize(3, 1000);
+                ATPAa.SortByMiddle([112, 171]);
+                rsclient.image.DrawATPA(ATPA);
+                for ladderr in ATPAa do
+                begin
+                  mouse.move(ladderr[random(length(ladderr))]);
+                  if mainscreen.IsUpText('Climb-down Ladder', 100) then
+                  begin
+                    mouse.click(mouse_right);
+                    wait(randomrange(300, 1000));
+                    if chooseoption.IsOpen then
+                    begin
+                      chooseoption.Select('Climb-down Ladder', mouse_left, true, true);
+                      wait(randomrange(9000, 10000));
+                      if (walkit.GetMyPos.DistanceTo([6783, 787]) < 100) then
+                      begin
+                        walkit.WalkBlind([6783, 787], 1);
+                        wait(10000);
+                        break;
+                        exit;
+                      end else
+                      begin
+                        markstatus('we didn''t make it downstairs. Exiting.');
+                        terminatescript('stuck at mining guild');
+                      end;
+                    end;
+                  end else
+                  begin
+                    markstatus('did not find uptext; trying again.');
+                    if italkit then
+                    begin
+                      for ladderr in ATPAa do
+                      begin
+                        mouse.move(ladderr[random(length(ladderr))]);
+                        if mainscreen.IsUpText('Climb-down Ladder', 100) then
+                        begin
+                          mouse.click(mouse_left);
+                          if mainscreen.DidRedClick then
+                          begin
+                            wait(randomrange(6000, 8000));
+                            if (walkit.GetMyPos.DistanceTo([6783, 787]) < 100) then
+                            begin
+                              walkit.WalkBlind([6783, 787], 1);
+                              wait(10000);
+                              break;
+                              exit;
+                            end;
+                          end;
+                        end;
+                      end;
+                    end;
+                  end;
+                end;
+              end;
+            end;
+          end;
+        end;
+      end;
+    end;
+  end;
+end;
+
+procedure losetrack;
+begin
+  case random(500) of
+    0:
+      begin
+        writeln('waiting short');
+        wait(randomrange(3000, 4500));
+      end;
+    1 .. 10:
+      begin
+        writeln('not losing track');
+      end;
+    11:
+      begin
+        writeln('waiting long');
+        wait(randomrange(10000, 20000));
+      end;
+    12 .. 499:
+      begin
+        writeln('not losing track');
+      end;
+  end;
+end;
+
+procedure minestuff(uptext: string; inv_ore: TRSItem; clr, tol: int32; hmod, smod: extended);
+//finds input colors on mainscreen, assigns & sorts TPAs and ATPAs then checks uptext before clicking
+//once clicked, sets a timer and checks chatbox to determine if we are mining
+//if timer runs out and the other values were not met then exit
+var
+  tpa, rock: tpointarray;
+  atpa: t2dpointarray;
+  timerr: tstopwatch;
+  didmine: boolean;
+begin
+  markstatus('Procedure: minestuff');
+  markstatus(inttostr(inventory.countitem(inv_ore)) + ore + ' ore mined.');
+  if srl.findcolors(TPA, CTS2(clr, tol, hmod, smod), mainscreen.bounds) then
+  begin
+    if paintscreen then rsclient.image.DrawTPA(tpa, clblue);
+    writeln('color match detected');
+    atpa := tpa.cluster(5);
+    writeln('assigned ATPA');
+    ATPA.FilterSize(100, 1000);
+    ATPA.SortByIndex(Mainscreen.Center);
+    writeln('sorting tpoints');
+    if paintscreen then rsclient.image.DrawATPA(atpa, [clred]);
+    for rock in ATPA do
+    begin
+      if inventory.IsFull then
+      begin
+        markstatus('inventory full');
+        bankordrop;
+      end;
+      rockcount:= inventory.countitem(inv_ore);
+      losetrack;
+      timerr.start;
+      markstatus('moving mouse');
+      mouse.move(rock[random(length(rock))]);
+      if (mainscreen.isuptext(uptext, 100)) then
+      begin
+        markstatus('uptext detected; clicking rock');
+        mouse.Click(mouse_left);
+        if not mainscreen.DidRedClick then
+        begin
+          markstatus('we didn' 't click the rock');
+          exit;
+        end
+        else
+        begin
+          wait(randomrange(800, 1000));
+          markstatus('red click detected; walking to rock & waiting for chat');
+          while minimap.IsPlayerMoving do
+          begin
+            markstatus('player is walking to rock');
+            wait(50);
+          end;
+          if (minimap.IsPlayerMoving = false) and (chat.getmessage(7, [chat_color_black]) = 'You swing your pick at the rock.') then
+          begin
+            markstatus('chat: "' + chat.getmessage(7, [chat_color_black]) + '"');
+            while ((chat.getmessage(7, [chat_color_black]) = 'You swing your pick at the rock.') and (timerr.ElapsedTime < 20000)) do
+              repeat
+                markstatus(chat.getmessage(7, [chat_color_black]));
+                wait(randomrange(50, 200));
+                markstatus('starting ore: ' + inttostr(rockcount) + '; current ' + ore + ' ore: ' + inttostr(inventory.CountItem(inv_ore)));
+                writeln(inttostr(timerr.elapsedtime));
+                rsclient.image.DrawBox(chat.GetLineBoxes()[7], clblue);
+                losetrack;
+              until ((timerr.ElapsedTime > 20000) or (chat.getmessage(7, [chat_color_black]) = 'You manage to mine some ' + lowercase(ore) + '.'));
+          end
+          else
+          begin
+            markstatus('something went wrong');
+            timerr.Reset;
+            exit;
+          end;
+          if (chat.getmessage(7, [chat_color_black]) = 'You manage to mine some ' + lowercase(ore) + '.') then
+            totaloremined:= totaloremined + 1;
+          timerr.Reset;
+        end;
+      end
+      else
+      begin
+        if not mainscreen.IsUpText(uptext, 100) then
+        begin
+          markstatus('uptext not detected');
+          timerr.Reset;
+          exit;
+        end;
+      end;
+    end;
+  end
+  else
+  begin
+    markstatus('no ' + ore + ' detected; searching again');
+    exit;
+  end;
+end;
+
+procedure minee;
+begin
+  if inventory.IsFull then
+    bankordrop;
+  case ore of
+    'Iron': minestuff('Mine Rocks', 'Iron ore', 2568780, 6, 0.09, 0.31);
+    'Mithril': minestuff('Mine Rocks', 'Mithril ore', 7426641, 13, 0.05, 0.05);
+    'Copper': minestuff('Mine Rocks', 'Copper ore', 4613508, 8, 0.03, 0.09);
+    'Tin': minestuff('Mine Rocks', 'Tin ore', 8882321, 10, 0.17, 0.13);
+    'Coal' : minestuff('Mine Rocks', 'Coal', 3097155, 4, 0.21, 0.42);
+  end;
+end;
+
+procedure setupp;
+begin
+  srl.setup;
+  walkit.Setup('world');
+  //login.AddPlayer('prestonlane4398+2@gmail.com', 'Yesman22', '5544', [544]);
+  if  (rsclient.IsLoggedIn = false) then
+  begin
+    markstatus('logging in');
+    login.LoginPlayer;
+  end;
+end;
+
+begin
+  cleardebug;
+  setupp;
+  repeat
+    minee;
+  until (not (rsclient.IsLoggedIn));
+end.

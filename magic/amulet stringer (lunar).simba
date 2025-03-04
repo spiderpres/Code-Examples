@@ -1,0 +1,131 @@
+program jewelerystringer_lunar;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl-p/osr.simba}
+
+const
+  amulet_u = 'Topaz amulet (u)';
+  amulet_s = 'Topaz amulet';
+
+var
+  spellDTM: integer:= DTMFromString('maQEAAHicE2RgYDBigmAzKDYGYkMg1gNiXShtBcSWUDkQXwuINYFYG4gtgDiRkYEhFogTgDgFiNOgOBWIk4E4DojjgTgaiCOhOBoqlgjFb9+8Yfh1khmM/3fxwTFM7N+3Iob1E7IYOoq8wRjEhvET/KzBmBqAkQoYAwAApUslnQ==');
+  spellx, spelly: integer;
+  bankcolor: tcts2color;
+
+
+
+
+function ClickChest: boolean;
+var
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+  timerr: tstopwatch;
+begin
+  timerr.start;
+  if srl.FindColors(TPA, bankcolor, mainscreen.Bounds) then
+  begin
+    ATPA:= tpa.Cluster(2);
+    rsclient.Image.DrawTPA(atpa.Biggest, clgreen);
+    mouse.move(ATPA.Biggest.Bounds);
+
+    if mainscreen.IsUpText('Bank') or mainscreen.IsUpText('Cast') then
+    begin
+      mouse.click(mouse_left);
+      if not mainscreen.DidRedClick then
+        mouse.click(mouse_left);
+
+      if mainscreen.DidRedClick then
+      begin
+        wait(randomrange(500, 1000));
+        result:= bank.IsOpen;
+      end;
+
+    end else
+      mouse.move(tpa.Bounds, true);
+
+  end;
+end;
+
+function dobank: boolean;
+begin
+  if not bank.IsOpen then
+    if clickchest then
+      writeln('opening bank');
+
+  if bank.IsOpen then
+  begin
+
+
+    if bank.DepositItem([amulet_s, -1], true) then
+      if not inventory.finditem(amulet_s) then
+        writeln('deposited strung amulets');
+
+    if not bank.FindItem(amulet_u) then
+      terminatescript('Out of supplies');
+
+    if bank.FindItem(amulet_u) then
+      if bank.WithdrawItem([amulet_u, -1, false], true) then
+        if inventory.FindItem(amulet_u) then
+          writeln('amulets ready for stringing');
+
+    result:= bank.close;
+  end;
+end;
+
+
+
+procedure clickspell;
+begin
+  if not inventory.FindItem('Astral rune') then
+    terminatescript('Out of runes');
+
+  if not (gametabs.GetCurrentTab = ersgametab.MAGIC) then
+    gametabs.Open(ersgametab.MAGIC);
+
+  wait(randomrange(300, 1500));
+
+  if finddtm(spelldtm, spellx, spelly, inventory.Bounds) then
+    mouse.move(spellx, spelly);
+
+  wait(randomrange(300, 1500));
+
+  writeln('uptext: ' + mainscreen.GetUpText);
+
+  if mainscreen.IsUpText('Cast String Jewellery') then
+  begin
+    writeln('uptext matched');
+    mouse.click(mouse_left);
+  end;
+
+  wait(randomrange(300, 1000));
+
+  gametabs.Open(ersgametab.INVENTORY);
+
+  while inventory.finditem(amulet_u) do
+    wait(randomrange(500, 5500));
+
+  if not inventory.FindItem(amulet_u) then
+    writeln('strung them all');
+    if dobank then
+      writeln('banking completed');
+
+end;
+
+procedure freedtms;
+begin
+  freedtm(spelldtm);
+end;
+
+procedure setupp;
+begin
+  srl.setup;
+  bankcolor:= CTS2(1055335, 3, 0.27, 1.31);
+  addonterminate('freedtms');
+end;
+
+begin
+  setupp;
+  if not inventory.FindItem(amulet_u) then
+    dobank;
+  while rsclient.IsLoggedIn do
+    clickspell;
+end.

@@ -1,0 +1,193 @@
+program VinylMIOner;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+const
+  ore = 'Iron';
+  powermine = true;
+
+var
+  rockcount: integer;
+
+procedure MarkStatus(status: string);
+begin
+  //print script to screen
+  rsclient.Image.Clear;
+  rsclient.image.DrawText('script status:' + status, [7, 320], clmoneygreen);
+  writeln(status);
+end;
+
+function checkgems: integer;
+//counts each gem and assigns respective int; result is sum of all gems
+begin
+  //counting gems
+  //result:= totalgems;
+end;
+
+function ismining: boolean;
+begin
+  if chat.GetMessage(0, [chat_color_black]) = 'You swing your pick the the rock.' then
+  begin
+    markstatus('we are mining');
+    result := true;
+  end
+  else
+    result := false;
+end;
+
+procedure bankordrop;
+var
+  oree: integer;
+  orre: TRSItem;
+begin
+  orre := ore + ' ore'
+  if (powermine = true) then
+  begin
+    Writeln('powermining selected; dropping ore');
+    repeat
+      inventory.ClickItem(ore + ' ore', 'Drop ' + ore + ' ore');
+      oree := inventory.CountItem(orre);
+    until (oree = 0);
+  end
+  else
+  begin
+    writeln('banking selected; depositing ore');
+
+    //walktobank;
+{ **code for deposit**}
+  end;
+end;
+
+procedure losetrack;
+begin
+  case random(500) of
+    0:
+      begin
+        writeln('waiting short');
+        wait(randomrange(3000, 4500));
+      end;
+    1 .. 10:
+      begin
+        writeln('not losing track');
+      end;
+    11:
+      begin
+        writeln('waiting long');
+        wait(randomrange(10000, 20000));
+      end;
+    12 .. 499:
+      begin
+        writeln('not losing track');
+      end;
+  end;
+end;
+
+procedure minestuff(uptext: string; clr, tol: int32; hmod, smod: extended);
+//finds input colors on mainscreen, assigns & sorts TPAs and ATPAs then checks uptext before clicking
+var
+  //once clicked, sets a timer and waits until chatbox & pixelshift are true to determine if we are mining
+  tpa, rock: tpointarray;
+  //if timer runs out and the other values were not met then exit
+  atpa: t2dpointarray;
+  timerr: tstopwatch;
+  didmine: boolean;
+begin
+  markstatus('Procedure: minestuff');
+  markstatus(inttostr(inventory.countitem(ore + ' ore')) + ore + ' ore mined.');
+  if srl.findcolors(TPA, CTS2(clr, tol, hmod, smod), mainscreen.bounds) then
+  begin
+    rsclient.image.DrawTPA(tpa, clblue);
+    writeln('color match detected');
+    atpa := tpa.cluster(5);
+    writeln('assigned ATPA');
+    ATPA.FilterSize(100, 1000);
+    ATPA.SortByIndex(Mainscreen.Center);
+    writeln('sorting tpoints');
+    rsclient.image.DrawATPA(atpa, [clred]);
+    for rock in ATPA do
+    begin
+      rockcount:= inventory.countitem(ore + ' ore');
+      losetrack;
+      timerr.start;
+      markstatus('moving mouse');
+      mouse.move(rock[random(length(rock))]);
+      if (mainscreen.isuptext(uptext, 100)) then
+      begin
+        markstatus('uptext detected; clicking rock');
+        mouse.Click(mouse_left);
+        if not mainscreen.DidRedClick then
+        begin
+          markstatus('we didn' 't click the rock');
+          exit;
+        end
+        else
+        begin
+          wait(randomrange(800, 1000));
+          markstatus('red click detected; walking to rock & waiting for chat');
+          while minimap.IsPlayerMoving do
+          begin
+            markstatus('player is walking to rock');
+            wait(50);
+          end;
+          if (minimap.IsPlayerMoving = false) and (chat.getmessage(7, [chat_color_black]) = 'You swing your pick at the rock.') then
+          begin
+            markstatus('chat: "' + chat.getmessage(7, [chat_color_black]) + '"');
+            while ((chat.getmessage(7, [chat_color_black]) = 'You swing your pick at the rock.') and (timerr.ElapsedTime < 20000)) do
+              repeat
+                markstatus(chat.getmessage(7, [chat_color_black]));
+                wait(randomrange(50, 200));
+                markstatus('starting ore: ' + inttostr(rockcount) + 'current ' + ore + ' ore: ' + inttostr(inventory.CountItem(ore + ' ore')));
+                writeln(inttostr(timerr.elapsedtime));
+                losetrack;
+              until ((timerr.ElapsedTime > 20000) or (chat.getmessage(7, [chat_color_black]) = 'You manage to mine some ' + lowercase(ore) + '.'));
+          end
+          else
+          begin
+            markstatus('something went wrong');
+            timerr.Reset;
+            exit;
+          end;
+          timerr.Reset;
+        end;
+      end
+      else
+      begin
+        if not mainscreen.IsUpText(uptext, 100) then
+        begin
+          markstatus('uptext not detected');
+          timerr.Reset;
+          exit;
+        end;
+      end;
+    end;
+  end
+  else
+  begin
+    markstatus('no ' + ore + ' detected; searching again');
+    exit;
+  end;
+end;
+
+procedure minee;
+begin
+  if inventory.IsFull then
+    bankordrop;
+  case ore of
+    'Iron': minestuff('Mine Rocks', 2568780, 6, 0.09, 0.31);
+    'Mithril': minestuff('Mine Rocks', 7426641, 13, 0.05, 0.05);
+    'Copper': minestuff('Mine Rocks', 4613508, 8, 0.03, 0.09);
+  end;
+end;
+
+begin
+  rsclient.image.drawbox(mainscreen.GetPlayerBox, clgreen);
+  rsclient.image.drawbox(chat.Bounds, clgreen);
+
+  repeat
+    minee;
+    if chat.LeveledUp then
+    begin
+      markstatus('we leveled up!');
+    end
+    else
+

@@ -1,0 +1,168 @@
+program relleka_rock_crabs;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+const
+  usecannon = true;
+
+var
+  walkit: TRSWalker;
+  cannonparts: TRSItemArray:= ['Cannon barrels', 'Cannon furnace', 'Cannon stand', 'Cannon base'];
+  walkpoints: TpointArray:= [[2652, 1593], [2663, 1596], [2686, 1569], [2668, 1535], [2612, 1559], [2612, 1580], [2629, 1584], [2589, 1552]];
+  rockpoints: tpointarray:= [[2660, 1572], [2653, 1576], [2653, 1583], [2653, 1592], [2669, 1565], [2669, 1536], [2624, 1535], [2629, 1539], [2629, 1539], [2580, 1550], [2608, 1572], [2616, 1584]];
+  cannonspot: tpoint:= [2636, 1584];
+{
+procedure backandforth;
+begin
+  if length(mainscreen.FindHPBars) < 2 then
+  begin
+    writeln('walking to other side');
+    if (currentpos.x < right_side.x) then walkit.walkblind(left_side);
+
+    if (currentpos.x < leftside.x) then walkit.walkblind(right_side);
+  end;
+end; }
+{
+function hascannon: boolean;
+var
+  cannonbool: tboolarray;
+  i, a: integer;
+begin
+  for i:= 0 to high(cannonparts) do
+  begin
+    if inventory.FindItem(cannonparts[i]) then
+    begin
+      writeln('part: ' + tostr(cannonparts[i]) + ' found');
+      cannonbool[i]:= true;
+    end else
+      cannonbool[i]:= false;
+  end;
+
+
+  for a:= 0 to high(cannonbool) do
+    if cannonbool
+  result:= cannonbool;
+end;
+}
+
+function setupcannon: boolean;
+begin
+  if inventory.FindItem('Cannon base') then
+  begin
+    if walkit.WalkBlind(cannonspot, 0) then
+      if inventory.ClickItem('Cannon base') then
+        while inventory.FindItems(cannonparts) do
+          wait(300);
+
+    if not inventory.FindItems(cannonparts) then
+      mousetile(walkit, cannonspot);
+
+    if mainscreen.IsUpText('Fire') then
+      mouse.click(mouse_left);
+
+    if mainscreen.DidRedClick then
+      while minimap.IsPlayerMoving do
+        wait(150);
+
+    while not (chat.GetMessage(7) = 'You load the cannon with 30 cannonballs.') do
+      wait(150);
+
+    result:= not inventory.FindItems(cannonparts);
+  end;
+end;
+
+
+
+function reloadcannon: boolean;
+begin
+  if walkit.walkblind(cannonspot) then
+    mousetile(walkit, cannonspot, true);
+
+  if mainscreen.IsUpText('Fire') then
+    mouse.click(mouse_left);
+
+  while not (chat.GetMessage(7) = 'You load the cannon with 30 cannonballs.') do
+    wait(500);
+
+  if (chat.GetMessage(7) = 'You load the cannon with 30 cannonballs.') then
+  begin
+    writeln('reloading complete');
+    result:= true;
+  end else
+    result:= false;
+end;
+
+procedure walkspot;
+var
+  newspot: tpoint;
+begin
+  if (chat.GetMessage(7) = 'Your cannon is out of ammo!') then
+  begin
+    writeln('reloading cannon');
+    if reloadcannon then
+      writeln('Cannon reloaded!');
+  end;
+
+  if (length(mainscreen.FindHPBars) <= 1) then
+  begin
+    writeln('walking to new spot');
+    newspot:= rockpoints[random(length(rockpoints))];
+    //mousetile(walkit, newspot, true);
+
+    if (chat.GetMessage(7) = 'Your cannon is out of ammo!') then
+    begin
+      writeln('reloading cannon');
+      if reloadcannon then
+        writeln('Cannon reloaded!');
+    end;
+
+    if walkit.WalkBlind(newspot, 1) then
+      wait(randomrange(3000, 5000));
+
+    if (chat.GetMessage(7) = 'Your cannon is out of ammo!') then
+    begin
+      writeln('reloading cannon');
+      if reloadcannon then
+        writeln('Cannon reloaded!');
+    end;
+
+    while (length(mainscreen.FindHPBars) >= 1) do
+    begin
+      writeln('now in combat');
+      wait(randomrange(10000, 15000));
+    end else
+    begin
+      writeln('not in combat, walking to new spot');
+      exit;
+    end;
+
+    if (chat.GetMessage(7) = 'Your cannon is out of ammo!') then
+    begin
+      writeln('reloading cannon');
+      if reloadcannon then
+        writeln('Cannon reloaded!');
+    end;
+
+  end else
+  begin
+    writeln('we are in combat');
+    wait(randomrange(10000, 15000));
+  end;
+end;
+
+begin
+  walkit.Setup('world');
+  //walkit.ScreenWalk:= true;
+  addonterminate('wipe');
+  if usecannon then
+    setupcannon;
+
+  while rsclient.IsLoggedIn do
+  begin
+    writeln(tostr(chat.GetMessage(7)));
+    drawpos(walkit);
+    walkspot;
+  end;
+
+end.

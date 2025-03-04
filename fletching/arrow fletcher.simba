@@ -1,0 +1,65 @@
+program arrowfletcher;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+var
+  itemslots: integer;
+  XPBox: Tbox;
+
+const
+  arrowhead = 'Adamant arrowtips';   //fletch item 1
+  shafts = 'Headless arrow';         //fletch item 2
+  drawstuff = true;
+
+procedure run;
+var
+  timerr: tstopwatch;
+begin
+  if inventory.FindItems([arrowhead, shafts]) then
+  begin
+    writeln('Fletching...');
+    inventory.use(arrowhead, shafts);
+
+    while not make.IsOpen do
+      wait(100);
+
+    if make.IsOpen then
+    begin
+      keyboard.PressKey(vk_space);
+      wait(1500);
+    end;
+
+    while (srl.GetPixelShift(xpbox, 100) > 200) do
+    begin
+      writeln('Still fletching arrows...');
+      wait(50);
+    end;
+
+    case random(500) of
+      0: begin writeln('antiban wait'); wait(randomrange(5000, 10000)); end;
+      1..499: begin writeln('no antiban'); end;
+    end;
+
+  end else
+  begin
+    writeln('out of supplies');
+  end;
+end;
+
+procedure setupp;
+begin
+  srl.setup;
+  xpbox:= box(468, 44, 513, 157);
+  if drawstuff then rsclient.Image.DrawBox(xpbox, clwhite);
+end;
+
+
+
+begin
+  setupp;
+
+  repeat
+    run
+  until(inventory.finditems([arrowhead, shafts]) = false);
+
+end.

@@ -1,0 +1,88 @@
+program unfinishedpizzamaker;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+const
+  items = ['Pizza base', 'Tomato', 'Cheese'];
+  unfp = 'Incomplete pizza';
+  uncp = 'Uncooked pizza';
+
+var
+  iitems: TRSItemArray;
+  walkit: TRSWalker;
+
+procedure setvars;
+begin
+  iitems:= ['Pizza base', 'Tomato', 'Cheese'];
+end;
+
+function dobank:boolean;
+begin
+  grandexchange.OpenBank;
+  if bank.IsOpen then
+  begin
+    if bank.DepositAll then
+      if bank.WithdrawItem([items[0], 9, false], true) then
+        if bank.WithdrawItem([items[1], 9, false], true) then
+          if bank.WithdrawItem([items[2], 9, false], true) then
+            if inventory.FindItems(iitems) then
+              if bank.close(false) then
+                writeln('banking completed');
+
+    result:= bank.Close;
+  end;
+end;
+
+procedure makepizza;
+begin
+  if inventory.FindItems(iitems) then
+  begin
+    writeln('We have everything for unfinished pizzas');
+
+    if inventory.use(items[0], items[1]) then
+    begin
+      writeln('Adding tomato to pizza base');
+
+      while not make.isopen do
+        wait(150);
+
+      if make.IsOpen then
+        make.Select(0, -1, false);
+
+      while inventory.CountItem(items[0]) > 0 do
+        wait(150);
+
+      if not inventory.FindItem(items[0]) then
+      begin
+        writeln('adding cheese');
+
+        if inventory.FindItem(unfp) and (inventory.CountItem(unfp) = 9) then
+          if inventory.use(unfp, items[2]) then
+            while not make.isopen do
+              wait(150);
+
+            if make.IsOpen then
+              if make.select(0, -1, false) then
+                writeln('Making uncooked pizzas');
+      end;
+
+      if inventory.CountItem(uncp) = 9 then
+        if dobank then
+          writeln('Banking completed!');
+    end;
+  end else
+  begin
+    writeln('Items not in inventory, banking..');
+    dobank;
+  end;
+end;
+
+
+
+begin
+  setvars;
+
+  while rsclient.IsLoggedIn do
+    makepizza;
+end.

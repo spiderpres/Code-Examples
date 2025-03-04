@@ -1,0 +1,284 @@
+//cooks karambwans fast af. simplicity is key. *not simple, but is slightly increasing mouse speed possible?
+program KaraCooker;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i SRL/OSR.SIMBA}
+
+const
+  DrawDebug   = true;
+  Censor      = false;
+
+  TestingMode = true;
+  ToTest      = ''; //for testing specific procedures
+
+
+var
+  walkit: TRSWalker;
+  bankcolor, stovecolor, laddercolor, trapdoorcolor: TCTS2Color;
+  BurntDTM, rawDTM: integer;
+  trapdoorbox, ladderbox, stovebox: TBox;
+  raws: TRSBankWithdrawItem;
+  stoveloc, ladderloc, bankloc: TPoint;
+
+ // Combination of miss mouse + slowing near the target destination
+procedure TMouse.HumanMove(Point: TPoint);
+var
+  mPt: TPoint;
+  S: Int32;
+  Miss: Double;
+  Range: Int64;
+begin
+  S := Self.Speed;
+  Range := Trunc(Power(Self.Position().DistanceTo(Point), 0.80)); // how much possible range to miss
+  Miss := SRL.SkewedRand(0.9, 0.1, 1.5); // Where miss will happen. 1 = destination (P).
+
+  mPt.X := Trunc((1-Miss)*Self.Position().X + Miss*Point.X);
+  mPt.Y := Trunc((1-Miss)*Self.Position().Y + Miss*Point.Y);
+
+  mPt.X += SRL.NormalRange(-Range, Range);
+  mPt.Y += SRL.NormalRange(-Range, Range);
+
+  Self.Move(mPt);
+  Self.Speed := round(S*0.85);
+  Self.Move(Point);
+  Self.Speed := S;
+end;
+
+
+function ClickChest: boolean;
+var
+  TPA: TPointArray;
+begin
+
+  if srl.FindColors(TPA, bankcolor, mainscreen.Bounds) then
+  begin
+    mouse.move(TPA.Bounds.Middle);
+
+    if mainscreen.IsUpText('Bank') then
+    begin
+      mouse.click(mouse_left);
+      result:= mainscreen.DidRedClick;
+    end;
+  end;
+end;
+
+function dropwalk: boolean;      //clicks chest, drops burnt while walking, clicks chest again
+var
+  burntboxes: TBoxarray;
+  BurntTPA: TPointArray;
+begin
+
+  if finddtms(burntDTM, BurntTPA, inventory.Bounds) then
+  begin
+
+    if clickchest and minimap.IsPlayerMoving(1) then
+    begin
+
+      while finddtms(burntDTM, BurntTPA, inventory.Bounds) do
+      begin
+        keyboard.KeyDown(vk_lshift);
+        mouse.click(BurntTPA.Pop, mouse_left);
+        findDTMs(burntDTM, burntTPA, inventory.bounds);
+        writeln(BurntTPA.len);
+      end;
+
+
+      result:= inventory.finditem('Burnt Karambwan');
+      keyboard.KeyUp(vk_lshift);
+    end;
+
+    rsclient.image.drawboxes(burntboxes, clred);
+
+    result:= inventory.FindItem('Burnt karambwan');
+  end;
+end;
+
+function depositit: boolean;     //deposits
+begin
+  if bank.IsOpen and inventory.FindItem('Cooked karambwan') then
+  begin
+    bank.WithdrawItem(raws, true);
+
+    result:= inventory.IsFull;
+  end;
+end;
+
+function withdrawit: boolean;    //withdraws
+begin
+  if bank.IsOpen and (inventory.Count = 0) then
+  begin
+    bank.WithdrawItem(raws, true);
+    bank.close;
+
+    result:= (inventory.CountItem(raws.Item) = 28);
+  end;
+end;
+
+function walktoladder: boolean;  //walks to ladder
+begin
+  rsclient.image.DrawBox(box(609, 110, 611, 113), clgreen);
+  mouse.click(box(609, 110, 611, 113), mouse_left);
+
+  wait(randomrange(15, 30));
+  result:= minimap.HasFlag;
+end;
+
+function climbladder: boolean;   //finds ladder, checks uptext, clicks, returns didredclick
+var
+  ladderTPA: TPointArray;
+begin
+  if srl.FindColors(ladderTPA, laddercolor, mainscreen.Bounds) then
+    rsclient.image.drawTPA(laddertpa, clblue);
+end;
+
+function StartCooking: boolean;  //clicks range, waits until at , then 1ticks from inventory slot 27 while holding down 2
+var
+  TPA: TPointArray;
+begin
+  inventory.ClickItem('Raw Karambwan');
+  rsclient.image.DrawBox(stovebox, clred);
+  if srl.FindColors(TPA, StoveColor, stovebox) then
+  begin
+    rsclient.image.DrawTPA(TPA, clyellow);
+    mouse.move(tpa.Bounds);
+    if mainscreen.IsUpText(['Use', 'range']) then
+    begin
+      mouse.click(mouse_left);
+
+
+      result:= mainscreen.DidRedClick;
+
+
+    end;
+  end;
+end;
+
+function KeepCooking: boolean;   //kinda sorta 1-ticks by using slot 27 on the range
+var
+  TPA: TPointArray;
+begin
+  while minimap.IsPlayerMoving do
+    waitex(100, 40);
+
+  if finddtms(rawdtm, tpa, inventory.Bounds) then
+    mouse.click(tpa.pop, mouse_left);
+
+  if srl.FindColors(TPA, StoveColor, stovebox) then
+  begin
+    rsclient.image.DrawTPA(TPA, clyellow);
+    mouse.move(tpa.Bounds);
+    if mainscreen.IsUpText(['Use', 'range']) then
+    begin
+      mouse.click(mouse_left);
+
+
+    end;
+  end;
+  result:= inventory.FindItem('Raw karambwan');
+end;
+
+function ClickTrapDoor: boolean; //finds color, checks uptext, clicks
+begin
+end;
+
+procedure setupp;
+begin
+  srl.Setup;
+  //options.SetZoomLevel(25);
+
+  walkit.setup('world');
+  walkit.ScreenWalk:= true;
+
+  bankcolor:= CTS2(596330, 15, 0.22, 2.05);
+  stovecolor:= CTS2(3487033, 5, 0.01, 0.43);
+  laddercolor:= CTS2(2046539, 4, 0.06, 0.36);
+
+  ladderbox:= box(216, 141, 252, 184);
+  trapdoorbox:= box(216, 141, 252, 184);
+  stovebox:= box(282, 153, 323, 200);
+
+  stoveloc:= [4654, 3587];
+  bankloc:= [6887, 360];
+  Ladderloc:= [3744, 138];
+
+  rawDTM:= DTMFromString('mwQAAAHic42RgYHBkYmBwBmI/IA4AYi8gdgBicyA2AWIrIH4KVHcTiO8B8XMgfg/En4D4DRA/AeLbQJzaGMDgGWvJYO6uxeCdaM3gGGLKEJjhwBBd6skQV+ENliMGMBKB4QAASKoTBQ==');
+  BurntDTM:= DTMFromString('mwQAAAHicjcqhCoAwAATQ25LDIgj+0opxxTIQtWxYRJg4MMzoN4seBvMOHhfuFAAvgZk22mklRz1ZGkkJ4OZXskuqqaGKCnq4XSlhshat1nDDgM4YLN7jCAFnjN+WE5HhzwsyoxFT');
+
+  raws.Item:= 'Raw karambwan';
+  raws.Noted:= false;
+  raws.Quantity:= -1;
+
+end;
+
+procedure debugger;
+var
+  Currentpos: tpoint;
+  CensorBox: tbox;
+begin
+  rsclient.image.clear;
+  CurrentPos:= walkit.getmypos;
+  CensorBox:= chat.Bounds;
+
+  if censor then RSClient.Image.DrawBoxFilled(CensorBox, false, clCream);
+
+  RSClient.Image.DrawText(tostr(currentpos), [12, 350], clFuchsia);
+  RSClient.Image.Clear(chat.GetLineBoxes[7]);
+  RSClient.image.drawboxes([ladderbox, stovebox], clorange);
+  wait(10);
+end;
+
+procedure run;
+begin
+  {if inventory.finditem(raws.Item) then
+  begin
+    walktoladder;
+  end; }
+  {end else
+  begin
+    if clickchest and bank.IsOpen then
+    begin
+      depositit;
+      withdrawit;
+    end;
+  end;
+
+  if walktoladder then
+    climbladder;
+
+  if climbladder then
+    keyboard.KeyDown(vk_space);
+
+  if startcooking then
+  begin
+    repeat
+      keepcooking;
+    until(not(inventory.FindItem(raws.Item)));
+  end;
+
+  if inventory.finditem(raws.Item) = false then
+  begin
+    keyboard.KeyUp(vk_space);
+    writeln('done cooking');
+    clicktrapdoor;
+  end;
+
+  if clicktrapdoor then
+    dropwalk;
+  }
+
+end;
+
+
+begin
+  setupp;
+  run;
+  {repeat
+    if drawdebug then
+      debugger;
+    run;
+
+  until(not(rsclient.IsLoggedIn));}
+
+  keyboard.KeyUp(vk_space);
+  keyboard.keyup(vk_lshift);
+  keyboard.keyup(vk_2);
+end.

@@ -1,0 +1,241 @@
+program catherby_teletab;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+{
+walktile_bank: [241, 771]
+clicktile_bank: [238, 766]
+
+walktile_door: [176, 796]
+clicktile_door: [173, 796]
+
+walktile_lectern: [160, 791]
+clicktile_lectern: [158, 786]
+}
+
+const
+  debugger = false;
+
+
+var
+  walkit: trswalker;
+  walktiles, clicktiles: tpointarray;
+  clay_banker: trsbankwithdrawitem;
+  tablet_banker: trsbankdeposititem;
+  doorcolor: tcts2color;
+  tabletDTM: integer:= DTMFromString('mUAIAAHicvcrBBgJhFMXx23PMUE/Srs1oEek92kUUQ5RIRIx6gGYXk5pvTD1b/b9x4lu1ylx+jnPvjc1siiEGSDDCBDPMscASqaywxgZb2ckeBzkiwwln8f2BGxxeuKLS3unme6H0yuAnzHvwV6o75RM13lnXelFkRX5p8svv/2mc9Jtsezot+zUf5uVL+g==');
+  lecternbox, createbox: tbox;
+  trips: integer;
+  progarray: tstringarray;
+{
+procedure progressreport;
+begin
+  progarray[0]:= 'trips made: ' + tostr(trips);
+  progarray[1]:= 'tablets made: ' + tostr(trips * 26);
+  progarray[2]:= 'Exp gained: ' + tostr((trips * 26) * 89);
+
+  lineprinter(progarray);
+end; }
+
+procedure drawtiles(worldpoints: tpointarray; tilecol: int32; clearscrn: boolean);
+var
+  i: integer;
+begin
+  for i:= 0 to high(worldpoints) do
+  begin
+    drawtile(walkit, worldpoints[i], tilecol);
+  end;
+
+  wait(250);
+  if clearscrn then
+    wipe;
+end;
+
+function walkto(place: tpoint): boolean;
+begin
+  result:= walkit.WalkBlind(place, 1);
+end;
+
+procedure walktest(walk_to: Tpoint);
+begin
+  if walkto(walk_to) then
+    writeln('Made it');
+end;
+
+function hasitems: boolean;
+begin
+  result:= inventory.FindItem(clay_banker.Item);
+end;
+
+function isdooropen: boolean;
+begin
+  mousetile(walkit, clicktiles[1], true);
+
+  if mainscreen.IsUpText('Open') then
+  begin
+    writeln('opening door');
+    mouse.Click(mouse_left);
+  end;
+
+  result:= not mainscreen.IsUpText('Open');
+end;
+
+function clickbank: boolean;
+begin
+  mousetile(walkit, clicktiles[0], true);
+
+  if mainscreen.IsUpText('Bank Bank') then
+    mouse.click(mouse_left);
+
+  if mainscreen.DidRedClick then
+    while not bank.IsOpen do
+      wait(151);
+
+  result:= bank.IsOpen;
+end;
+
+function dobank: boolean;
+begin
+  minimap.SetCompassAngle(90);
+
+  if walkto(walktiles[0]) then
+  begin
+    if not bank.IsOpen then
+      clickbank;
+
+    wait(randomrange(150, 600));
+
+    if bank.isopen then
+      if bank.DepositItem(tablet_banker, true) then
+        writeln('deposited tablets');
+
+    wait(randomrange(150, 600));
+
+    if bank.WithdrawItem(clay_banker, true) then
+      writeln('withdrew clay');
+
+    wait(randomrange(150, 600));
+
+  end;
+  result:= bank.close;
+end;
+
+function clicklectern: boolean;
+var
+  redclick: boolean;
+begin
+  mousetile(walkit, clicktiles[2], true);
+  if mainscreen.IsUpText('Study') then
+    mouse.click(mouse_left);
+
+  redclick:= mainscreen.DidRedClick;
+  if redclick then
+    writeln('clicked lectern');
+
+  result:= redclick;
+end;
+
+procedure maketabs;
+var
+  x, y: integer;
+begin
+  inventory.Open;
+  if walkto(walktiles[1]) then
+    if isdooropen then
+      writeln('door is open');
+
+  if clicklectern then
+    while not finddtm(tabletDTM, x, y, mainscreen.Bounds) do
+      wait(131);
+
+  rsclient.Image.DrawBox(lecternbox, clred);
+
+  if finddtm(tabletdtm, x, y, mainscreen.Bounds) then
+    mouse.move(lecternbox);
+
+  if mainscreen.IsUpText('Select Catherby') then
+    mouse.click(mouse_left);
+
+  wipe;
+  rsclient.Image.DrawBox(createbox, clred);
+
+  mouse.move(createbox);
+
+  if mainscreen.IsUpText('Create Catherby') then
+    mouse.click(mouse_left);
+
+  wipe;
+
+  while inventory.FindItem(clay_banker.Item) do
+  begin
+    //progressreport;
+    wait(151);
+  end;
+
+  if not inventory.FindItem(clay_banker.Item) then
+    if walkto(walktiles[1]) then
+      if isdooropen then
+        writeln('Ready to bank');
+
+  if not inventory.finditem(clay_banker.item) then
+    if dobank then
+    begin
+      trips:= trips + 1;
+      exit;
+    end;
+end;
+
+procedure freedmt;
+begin
+  freedtm(tabletdtm);
+end;
+
+procedure setupp;
+begin
+  srl.Setup;
+  walkit.Setup('world');
+  walkit.ClickRandomness:= 2;
+
+  walktiles:= [[241, 771]{bank}, [176, 796]{door}, [160, 791]{lectern}];
+  clicktiles:= [[235, 766], [173, 796], [159, 788]];
+
+  clay_banker:= ['Soft clay', -1, false];
+  tablet_banker:= ['Catherby teleport', -1];
+
+  lecternbox:= box(58, 164, 171, 202);
+  createbox:= box(322, 281, 416, 301);
+
+  doorcolor:= CTS2(8291463, 2, 0.45, 0.30);
+
+  minimap.SetCompassAngle(90);
+
+  trips:= 0;
+
+  addonterminate('freedmt');
+  addonterminate('wipe');
+
+  if debugger then
+    exit;
+
+  if not hasitems then
+    dobank;
+end;
+
+
+begin
+  setupp;
+
+  if debugger then
+    repeat
+      drawpos(walkit);
+      drawtiles(walktiles, clblue, false);
+      drawtiles(clicktiles, clred, true);
+      //walktest(walktiles[2]);
+    until(false);
+
+  repeat
+    maketabs;
+    //progressreport;
+  until not rsclient.IsLoggedIn;
+end.

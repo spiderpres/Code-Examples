@@ -1,0 +1,40 @@
+program jadeAmuletEnchanter;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$I SRL/osr.simba}
+
+function EnchantEm: boolean;
+var
+  amulets: int32;
+  slots: TIntegerArray;
+  timerr: tstopwatch;
+begin
+  magic.castSpell(ERSSPELL.LVL3_ENCHANT);
+  timerr.start;
+  while not inventory.IsOpen and (timerr.ElapsedTime < 5000) do
+    wait(randomrange(50, 100));
+
+  if inventory.IsOpen and inventory.finditem('Topaz amulet', slots) then
+  begin
+    amulets:= inventory.countitem('Topaz amulet');
+    inventory.ClickSlot(slots[random(length(slots))]);
+    repeat
+      wait(randomrange(25, 100));
+    until((gametabs.GetCurrentTab = ersgametab.MAGIC) or (timerr.ElapsedTime = 5000));
+  end;
+
+  if inventory.finditem('Topaz amulet', slots) then
+  begin
+    result:= false;
+  end else
+    result:= true;
+
+end;
+
+
+begin
+  srl.Setup;
+  repeat
+    enchantem;
+  until(not(rsclient.IsLoggedIn));
+
+end.

@@ -1,0 +1,45 @@
+program arrowfletcher;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+const
+  whattips = 'Diamond bolt tips';
+  shafts = 'Adamant bolts';
+
+function hasitems: boolean;
+begin
+  result:= inventory.FindItems([whattips, shafts]);
+end;
+
+procedure fletchem;
+var
+  fletched: integer;
+begin
+  if not hasitems then
+  begin
+    writeln('out of supplies');
+  end else
+    inventory.use(whattips, shafts);
+
+  while not make.isopen do
+    wait(121);
+
+  if make.IsOpen then
+    if make.Select(0, 10, true) then
+      while not isxpgain do
+        wait(randomrange(121, 355));
+
+  rsclient.image.DrawBox(MSXPBox, clwhite);
+
+  while isxpgain do
+    wait(131);
+
+  wipe;
+end;
+
+begin
+  srl.Setup;
+  while rsclient.IsLoggedIn do
+    fletchem;
+end.

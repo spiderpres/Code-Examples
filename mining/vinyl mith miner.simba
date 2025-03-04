@@ -1,0 +1,366 @@
+program LumbyMithMiner;
+//{$define SMART}
+{$I SRL-osr/OSR.simba}
+//{$I RSWalker/Walker.simba}
+
+const
+  LOGIN_NAME = '';    //Username/Email
+  LOGIN_PASS = '';    //Password
+  RS_WORLD   = -1;    //Desired World (-1 = Random)
+  IS_MEMBER  = false; //True if your player is a Member
+
+var
+  Walk: TRSWalker;            //Used for RSWalker (to walk paths)
+  ToBank, ToMine, ToStairs: TPointArray;
+  MithDTM: Integer;
+
+procedure declarePlayers();
+begin
+  with Players.New()^ do
+  begin
+    LoginName  := LOGIN_NAME;
+    Password   := LOGIN_PASS;
+    IsActive   := True;
+    IsMember   := IS_MEMBER;
+    World      := RS_WORLD;
+  end;
+  Players.SetCurrent(0);
+end;
+
+function SetUp(): Boolean;
+begin
+  SRL.Setup([]);                 //Setup SRL to allow us to access it's functions.
+  //Walk.Init('world.png', -1);    //Setup RSWalker by initializing the map we want to use
+  //Walk.Init('lumby_upstairs.png', -1);//need to find how to initialize more than one png
+
+  ToBank:=   [[4401, 3853], [4421, 3853], [4486, 3856], [4562, 3854], [4644, 3852],
+             [4703, 3817], [4758, 3760], [4782, 3699], [4753, 3641], [4697, 3587], [4640, 3610]];
+
+  ToMine:=   [[4651, 3609], [4724, 3575], [4751, 3646], [4772, 3717], [4766, 3767],
+             [4762, 3801], [4702, 3820], [4622, 3846], [4543, 3867], [4470, 3854],
+             [4420, 3850], [4404, 3850], [4391, 3863]];
+
+  ToStairs:= [[71, 73], [56, 106]];
+
+  MithDTM:= DTMFromString('mrAAAAHic42BgYEhlZmAoAOJcII4D4lAgjgLiBCDOAGJuIGYGYkEgFgdifiBmAeJ/TEDNQNrHp4Ah3M2AwckpiSEvwpYhJdASKMEIFvPyymMgBBgJYBgAANdiCxo=');
+
+
+  declarePlayers();              //Declare the player we are using
+
+  if (not SRL.isLoggedIn) then   //If not logged in then..
+  begin
+     Players.LoginCurrent();     //Log player in
+     MainScreen.setAngle(True);  //Sets the camera angle to the highest point
+  end;
+
+  Result := True;
+end;
+
+procedure waitLoop();
+var
+  InvCount: Integer;
+  T: TTimeMarker;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  InvCount := Inventory.Count(); //Gets the count in our inventory
+  T.Start;                       //Start our timer
+  repeat
+    wait(randomRange(75, 250));  //Wait a random amount of time
+  until((Inventory.Count() > InvCount) or (T.GetTime > 20000)); //Stop repeating once inv count changes or we time out
+end;
+
+procedure walkTo(path: TPointArray);
+begin
+  Walk.WalkPath(path); //Walk our path passed to the procedure
+end;
+
+//need to break this out into walk up/walkdown/deposit as separace procedures
+{
+proc walkup;
+proc walk down;
+
+proc depositore;
+begin
+  walkup;
+  //deposit code
+  walkdown;
+end;
+}
+
+procedure walkup;
+var
+  x, y: integer;
+begin
+  Walk.Init('lumby_upstairs.png', -1);
+  if not Inventory.IsOpen then
+    Inventory.Open();
+
+  if FindColorTolerance(x, y, 606304, Mainscreen.GetBounds, 1) then
+  begin
+    Mouse.Move(x, y);
+    if Mainscreen.IsUpText('Staircase') then
+    begin
+      WriteLn('Found staircase');
+      WriteLn('Climbing');
+      if Mouse.Click(ctRed) then
+      begin
+
+        if Minimap.isRunEnabled() then
+          wait(RandomRange(2500, 3500))
+        else
+          Wait(RandomRange(4500, 5500));
+
+        {$IFDEF SMART}
+          Smart.Image.DrawBox(IntToBox(186, 189, 300, 296));
+        {$ENDIF}
+
+        if FindColorTolerance(x, y, 606304, 186, 189, 300, 296, 1) then
+        begin
+          Wait(1500, 2500);
+          Mouse.Move(x, y);
+          if Mainscreen.IsUpText('Staircase') then
+          begin
+            Mouse.Click(mouse_right);
+            WriteLn('Found staircase');
+            WriteLn('Climbing');
+            if ChooseOption.IsOpen() then
+            begin
+              ChooseOption.Select(['Climb-up', 'Stairs'], Mouse_Left, false, true);
+              Mainscreen.SetAngle(False);
+              WriteLn('Banking');
+            end;
+          end;
+        end;
+      end;
+    end
+  end
+end;
+
+procedure walkdown;
+var
+  x, y: integer;
+begin
+  Mainscreen.SetAngle(true);
+  WalkTo(ToStairs);
+  if FindColorTolerance(x, y, 3751748, 186, 189, 300, 296, 3) then
+  begin
+    Wait(250+Random(100));
+    Mouse.Move(x, y);
+    if Mainscreen.IsUpText('Staircase') then
+    begin
+      WriteLn('Found staircase');
+      WriteLn('Climbing');
+      Mouse.Click(mouse_left);
+      Wait(RandomRange(2000, 2500));
+      if FindColorTolerance(x, y, 606304, 186, 189, 300, 296, 1) then
+      begin
+        Wait(1500, 2500);
+        Mouse.Move(x, y);
+        if Mainscreen.IsUpText('Staircase') then
+        begin
+          WriteLn('Found staircase');
+          WriteLn('Climbing');
+          Mouse.Click(mouse_right);
+          if ChooseOption.IsOpen() then
+          begin
+            ChooseOption.Select(['Climb-down', 'Stairs'], Mouse_Left, false, true);
+          end;
+        end;
+      end;
+    end;
+  end;
+    //Walk.Init('world.png', -1);
+end;
+
+procedure Deposit; //need to rename once finished
+var
+  x, y: integer;
+  TPA: TPointArray;
+begin
+  if SRL.FindColors(TPA, CTS2(9535109, 5, 0.76, 0.51), Mainscreen.GetBounds()) then
+  begin
+
+    {$IFDEF SMART}
+      Smart.Image.DrawTPA(TPA, clFuchsia);
+    {$ENDIF}
+
+    Mouse.move(TPA[Random(Length(TPA))]);
+    if Mainscreen.IsUpText('Bank') then
+    begin
+      if Mouse.Click(ctRed) then
+      begin
+        WriteLn('Walking to booth');
+
+        if Minimap.isRunEnabled() then
+          Wait(RandomRange(5000, 6000))
+        else
+          Wait(RandomRange(10500, 12000));
+
+        if Bankscreen.IsOpen() then
+        begin
+          if FindDTM(MithDTM, x, y, Inventory.GetBounds) then
+          begin
+            WriteLn('Depositing ores');
+            Mouse.click(x, y, Mouse_right);
+            Wait(300, 500);
+            ChooseOption.Select('Deposit-All', Mouse_left, true, true);
+            BankScreen.Close();
+            wait(100+Random(100));
+          end;
+        end;
+      end;
+    end;
+  end;
+    Smart.Image.Clear;
+end;
+
+(*
+procedure DepositOre;
+var
+  x, y: Integer;
+begin
+  if FindColorTolerance(x, y, 606304, Mainscreen.GetBounds, 1) then
+  begin
+    Mouse.Move(x, y);
+    if Mainscreen.IsUpText('Staircase') then
+    begin
+      WriteLn('found staircase');
+      if Mouse.Click(ctRed) then
+      begin
+        wait(RandomRange(3500, 4500));
+        Smart.Image.DrawBox(IntToBox(186, 189, 300, 296));
+        if FindColorTolerance(x, y, 606304, 186, 189, 300, 296, 1) then
+        begin
+          Mouse.Move(x, y);
+          if Mainscreen.IsUpText('Staircase') then
+          begin
+            WriteLn('found staircase');
+            Mouse.Click(mouse_right);
+            if ChooseOption.IsOpen() then
+            begin
+              ChooseOption.Select(['Climb-up', 'Stairs'], Mouse_Left, false, true);
+              wait(RandomRange(2250, 3000));
+              Mouse.Click(RandomRange(650, 657), RandomRange(40, 50), Mouse_Left);
+              wait(RandomRange(3000, 5000));
+              if FindColorTolerance(x, y, 7965845, Mainscreen.GetBounds, 3) then
+              begin
+                WriteLn('walking to bank booth');
+                wait(RandomRange(300, 500));
+                Mouse.Move(x, y);
+                if Mainscreen.IsUpText('Bank') then
+                begin
+                  Mouse.Click(Mouse_left);
+                  wait(RandomRange(1500, 2000));
+                  if FindDTM(MithDTM, x, y, Inventory.GetBounds) then
+                  begin
+                    Wait(300, 500);
+                    Mouse.Click(x, y, Mouse_right);
+                    ChooseOption.Select('Deposit-All', Mouse_left, true, true);
+                    BankScreen.Close();
+                    wait(100);
+                    if FindDTM(MinimapStairDTM, x, y, Minimap.GetBounds) then
+                    begin
+                      Mouse.Click(x, y, Mouse_left);
+                      wait(RandomRange(2000, 3500));
+                      Smart.Image.DrawBox(IntToBox(186, 189, 300, 296));
+                      if FindColorTolerance(x, y, 606304, 186, 189, 300, 296, 1) then
+                      begin
+                        Mouse.Move(x, y);
+                        if Mainscreen.IsUpText('Staircase') then
+                        begin
+                          Mouse.Click(Mouse_Left);
+                          if FindColorTolerance(x, y, 606304, 186, 189, 300, 296, 1) then
+                          begin
+                            Mouse.Move(x, y);
+                            if Mainscreen.IsUpText('Staircase') then
+                            begin
+                              WriteLn('found staircase');
+                              Mouse.Click(mouse_right);
+                              if ChooseOption.IsOpen() then
+                              begin
+                                ChooseOption.Select(['Climb-down', 'Stairs'], Mouse_Left, false, true);
+                                wait(RandomRange(2250, 3000));
+                              end;
+                            end;
+                          end;
+                        end;
+                      end;
+                    end;
+                  end;
+                end;
+              end;
+            end;
+          end;
+        end;
+      end;
+    end;
+  end;
+end;
+*)
+
+procedure findmith;
+var
+  TPA, Mith: TPointArray;
+  ATPA: T2DPointArray;
+begin
+  Mainscreen.SetAngle(true);
+  if not inventory.IsOpen then
+    Inventory.Open();
+
+  if (SRL.FindColors(TPA, CTS2(6505538, 8, 0.13, 0.11), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA:= TPA.Cluster(2);
+    ATPA.FilterSize(100, 500);
+    ATPA.SortByIndex(MainScreen.GetMiddle);
+
+    {$IFDEF SMART}
+      SMART.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    for Mith in ATPA do
+    begin
+      Mouse.move(Mith[Random(Length(Mith))]);
+      if MainScreen.IsUpText('Rocks') then
+      begin
+        if Mouse.click(ctRed) then
+        begin
+          WriteLn('We''re mining...');
+          WaitLoop;
+          Break;
+        end;
+      end;
+    end;
+  end;
+  {$IFDEF SMART}
+    Smart.Image.Clear;
+  {$ENDIF}
+end;
+
+//need to add gem detection
+
+begin //Main
+  if setUp then
+    Mainscreen.SetAngle(true);
+    writeln('We are set up and ready to go!');
+    repeat
+    Walk.Init('world.png', -1);
+    WalkTo(ToMine);
+    while (not Inventory.IsFull) do
+    begin
+      findMith;
+      WriteLn('Runtime:' + TSRL.TimeRunning);
+    end;
+    WalkTo(ToBank);
+    Wait(1000+Random(500));
+    Walkup;
+    Deposit;
+    WalkDown;
+
+  until(not(SRL.isLoggedIn));
+ { WalkUp;
+  deposit;
+  WalkDown;}
+  FreeDTM(MithDTM);
+end.

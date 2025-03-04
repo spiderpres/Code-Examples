@@ -1,0 +1,34 @@
+program new;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+const
+  whatbolt = 'Adamant bolts';
+  feather = 'Diamond bolt tips';
+
+function hasitems: boolean;
+begin
+  result:= inventory.FindItems([feather, whatbolt]);
+end;
+
+procedure fletchem;
+var
+  fletched: integer;
+begin
+  if inventory.FindItems([feather, whatbolt]) then
+    if inventory.use(feather, whatbolt) then
+    begin
+      writeln('fletched!');
+      fletched:= fletched + 1;
+      writeln(fletched);
+    end;
+end;
+
+begin
+  srl.Setup;
+  while rsclient.IsLoggedIn do
+    repeat
+      fletchem;
+    until not hasitems;
+end.

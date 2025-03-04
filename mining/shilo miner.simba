@@ -1,0 +1,148 @@
+program shilo_village_miner;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+var
+  walkit: trswalker;
+  bankloc, mineloc: tpoint;
+  rockCol, bankcol: TCts2Color;
+  smallbox: tbox;
+  swingmsg, minedmsg: string;
+  gemsmined: integer;
+
+type
+  TShiloPath = record(TWebGraph)
+    LOCATION_SHILO_BANK: TPoint;
+    LOCATION_SHILO_OVERGROUND_MINE: TPoint;
+  end;
+
+var
+  ShiloPath: TShiloPath;
+
+procedure TShiloPath.Load;
+begin
+  Self.LoadNodesFromString('TQAAAHicHcrBDQAgCATBVihB4BSohdh/Gx7+JpttNy3BcbtNBqlKai7BrhgCZJyhT3UMbQtQ/11GIu8Dn0URNQ==');
+  Self.LoadPathsFromString('HwAAAHicBcEJEQAgEMQwKysB7sFMp/5tkHDlpOSmpTLSWZk8WT+AIQgN');
+  Self.LoadNamesFromString('NwAAAHiciy7OyMzJj09KzMuOjVY2wMQQ+fyy1KL0ovzSvJT43My81FgAEIETkw==');
+  {
+  Self.LOCATION_SHILO_BANK := [3219, 4632];
+  Self.LOCATION_SHILO_OVERGROUND_MINE := [3102, 4448];
+  }
+  mineloc:= Self.LOCATION_SHILO_OVERGROUND_MINE := [3102, 4448];
+  bankloc:= Self.LOCATION_SHILO_BANK := [3219, 4632];
+end;
+
+operator := (var Left: TWebGraph; var Right: TShiloPath): TWebGraph;
+begin
+  Right.Load();
+
+  Left.Nodes := Right.Nodes;
+  Left.Paths := Right.Paths;
+  Left.Names := Right.Names;
+
+  Result.Nodes := Right.Nodes;
+  Result.Paths := Right.Paths;
+  Result.Names := Right.Names;
+end;
+
+
+procedure setupp;
+begin
+  srl.setup;
+  if options.GetZoomLevel <> 50 then
+    options.SetZoomLevel(50);
+
+  walkit.setup('world');
+  walkit.ScreenWalk:= true;
+
+  rockcol:= CTS2(8326017, 14, 0.03, 1.13);
+  bankcol:= CTS2(6447720, 11, 0.23, 0.08);
+
+  smallbox:= box(mainscreen.Bounds.Middle, 100, 100);
+
+  swingmsg:= 'You swing your pick at the rock.';
+  minedmsg:= 'You just mined an';
+end;
+
+function walkto(where: string): boolean;
+begin
+  case where of
+    'mine': result:= walkit.walkblind(shilopath.LOCATION_SHILO_OVERGROUND_MINE);
+    'bank': result:= walkit.walkblind(shilopath.LOCATION_SHILO_BANK);
+  end;
+end;
+
+function openbank: boolean;
+var
+  TPA: tpointarray;
+  ATPA: t2dpointarray;
+begin
+end;
+
+function bankit: boolean;
+begin
+  walkto('mine');
+end;
+
+function ismining: boolean;
+begin
+  result:= srl.IsAnimating(mainscreen.GetPlayerBox, 100, 1000);
+end;
+
+
+procedure minegems;
+var
+  tpa: tpointarray;
+  atpa: t2dpointarray;
+  invcount: integer;
+begin
+  invcount:= inventory.Count;
+
+  if inventory.IsFull then
+  begin
+    writeln('inventory full, banking');
+    if bankit then
+      writeln('Banking complete!');
+  end;
+
+  rsclient.image.DrawBox(smallbox, clyellow);
+  if srl.FindColors(TPA, rockcol, smallbox) then
+  begin
+    writeln('Found Gem Rock nearby');
+    atpa:= tpa.Cluster(5);
+    atpa.SortByMiddle(mainscreen.Bounds.Middle);
+
+    mouse.move(atpa.pop.Bounds);
+    if mainscreen.IsUpText('Mine Gem') then
+    begin
+      writeln('Uptext: ' + mainscreen.GetUpText);
+      mouse.click(mouse_left);
+
+
+      while not(mainscreen.DidRedClick or (chat.GetMessage(7) = swingmsg)) do
+        wait(randomrange(131, 271));
+
+      while minimap.IsPlayerMoving do
+        wait(randomrange(150, 500));
+
+      while ismining do
+        wait(31);
+
+    end;
+  end else
+  begin
+    Writeln('no gem rocks found');
+    wait(randomrange(12000, 15000));
+  end;
+end;
+
+
+
+begin
+  setupp;
+  rsclient.image.clear;
+  walkto('mine');
+  repeat
+    minegems;
+  until(not(rsclient.IsLoggedIn));
+end.

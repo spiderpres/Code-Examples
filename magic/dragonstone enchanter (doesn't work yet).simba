@@ -1,0 +1,48 @@
+program DRAGONSTONEENCHANTER;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+//enchants dragonstone shit
+//have cosmic runes in invy, mud staff equipped
+
+const
+  jewelerytype = 'Ring';
+
+var
+  ringsenchanted, currentrings: integer;
+  spellbox: tbox;
+
+function caster:boolean;
+begin
+  if not magic.IsOpen then
+    magic.Open;
+  //if magic.IsOpen then
+  begin
+    mouse.move(spellbox);
+    if mainscreen.IsUpText('Cast') then
+    begin
+      mouse.click(mouse_left);
+      wait(randomrange(1250, 1500));
+      result:= true;
+    end;
+  end;
+end;
+
+begin
+  srl.setup;
+  spellbox:= box(633, 377, 647, 390);
+
+  ringsenchanted:= 0;
+  rsclient.image.DrawBox(spellbox, clwhite);
+  repeat
+    if caster then
+    begin
+      //currentrings:= inventory.CountItem('Dragonstone ' + lowercase(jewelerytype));
+      inventory.ClickItem('Dragonstone ' + lowercase(jewelerytype));
+      wait(1500);
+      {while inventory.IsOpen do
+        wait(31); }
+    end;
+  until(not(inventory.finditem('Dragonstone ' + lowercase(jewelerytype))));
+
+
+end.

@@ -1,0 +1,86 @@
+program melee_script;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+var
+  walkit: TRSWalker;
+  tiles: tpointarray:= [[5246, 1400], [5242, 1400], [5223, 1404]]; //walker coords !!~broken~!!
+  mosscol: TCTS2Color:= CTS2(5935242, 10, 0.35, 1.09);
+
+function isattacking: boolean;
+begin
+  //detect hitboxes or whatever
+end;
+
+procedure drawtile(tile: tpoint; clearscreen: boolean);
+var
+  msbox: tbox;
+begin
+  msbox:= minimap.PointToMsBox(walkit.WorldToMM(tile), minimap.GetCompassAngle(false));
+  rsclient.image.DrawBox(msbox, clmoneygreen);
+  if clearscreen then
+    rsclient.image.clear;
+end;
+
+function movespot: boolean;  //broken, don't use
+var
+  newspot: tpoint;
+begin
+  newspot:= tiles[random(length(tiles))];
+  writeln('Walking to: ' + tostr(newspot));
+  drawtile(newspot, false);
+  result:= walkit.walkblind(newspot, 1);
+end;
+
+function eatfood: boolean;
+begin
+  //this gets called when health is low, eats food and returns true when healed
+end;
+
+function findmonster(TPA: tpointarray; col: tcts2color): boolean;
+var
+  ATPA: T2DPointArray;
+  boxarray: tboxarray;
+begin
+  if srl.FindColors(TPA, mosscol, mainscreen.bounds) then
+  begin
+    atpa:= tpa.Cluster(2);
+    atpa.SortByMiddle(mainscreen.Bounds.Middle);
+    boxarray:= atpa.ToTBA;
+
+    mouse.move(boxarray.
+
+
+procedure attackem;
+begin
+  while not isattacking do
+  begin
+    if findmonster then
+      clickmouse(mouse_left);
+
+    if mainscreen.DidRedClick then
+      break;
+  end;
+
+
+
+  {
+  while isattacking and (minimap.GetHPLevel > 50) do    //wait loop while attacking & health is good
+    wait(150);
+  }
+end;
+
+procedure setupp;
+begin
+  walkit.Setup('world');
+end;
+
+
+begin
+  setupp;
+
+  while rsclient.IsLoggedIn do
+    if movespot then
+      writeln('moved spot successfully');
+end.

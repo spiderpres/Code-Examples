@@ -1,0 +1,312 @@
+program rangedcowkiller;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+{add settings for ranged attacking (arrow count, switching when out of arrows, etc)}
+{add failsafe, if we are gaining exp then we're okay, if exp has not been gained recently then log out}
+
+var
+  wrld: TIntegerArray;
+  timer: TStopwatch;
+  RSW: TRSWalker;
+  userr, passs, pinn: string;
+
+procedure declareplayer;
+begin
+  userr:= 'prestonlanegrissett1@gmail.com';     //username
+  Passs:= 'Idrinkmilk22';     //password
+  Pinn:=  '';     //bank pin
+  //wrld:=  [-1];     //worlds you want. put commas between them. (-1 is random)
+  login.AddPlayer(userr, passs, pinn);
+end;
+
+procedure setup;
+begin
+  if not rsclient.IsLoggedIn then
+    exit;
+
+  declareplayer;
+  begin
+    rsw.Setup('world');
+    options.SetZoomLevel(30);
+    minimap.SetCompassAngle(270);
+  end;
+end;
+
+procedure walktogate;
+var
+  x, y: integer;
+begin
+  {if not inventory.isfull then
+  begin
+    writeln('still have room in inventory');
+    exit;
+  end;}
+
+  minimap.SetCompassAngle(0, 2);
+  mainscreen.SetHighestPitch;
+  writeln('walking to gate');
+  rsw.WalkBlind([4831, 3377], 1);
+end;
+
+procedure checkgate; //code for opening gate if it's closed
+var
+  searchbox: tbox;
+  x, y: integer;
+begin
+  searchbox:= box(162, 189, 198, 226);
+  rsclient.image.clear;
+  rsclient.image.DrawBox(searchbox, clblue);
+  if findcolorspiraltolerance(x, y, 406084, 162, 189, 198, 226, 7) then
+  begin
+    writeln('found gate, mousing over');
+    mouse.move(x, y);
+    if mainscreen.isuptext('Open Gate') then
+    begin
+      writeln('gate is closed');
+      mouse.click(mouse_left);
+      if mainscreen.DidRedClick then
+      begin
+        writeln('opening gate');
+        wait(randomrange(3000, 3500));
+      end;
+    end else
+    begin
+      writeln('gate seems to be open');
+    end;
+  end;
+end;
+
+procedure walktocastlestairs;
+begin
+  rsw.WalkBlind([4637, 3539], 1);
+end;
+
+procedure goupstairs;
+var
+  x, y: integer;
+  searchbox, searchboxx: tbox;
+begin
+  if (minimap.GetCompassAngle(true) <> 0 + randomrange(1, 3)) then
+  begin
+    minimap.SetCompassAngle(0, 1);
+  end;
+
+  searchbox:= box(157, 72, 247, 149);
+  searchboxx:= box(157, 72, 247, 149);
+  rsclient.image.clear;
+  rsclient.image.DrawBox(searchbox, clblue);
+  if FindColorspiraltolerance(x, y, 4606542, 157, 72, 247, 149, 2) then
+  begin
+    mouse.click(x, y, mouse_right);
+    chooseoption.Select('Climb-up', mouse_left);
+    wait(randomrange(2500, 2500));
+    if FindColorspiraltolerance(x, y, 4606542, 157, 72, 247, 149, 2) then
+    begin
+      rsclient.image.clear;
+      rsclient.image.DrawBox(searchboxx, clblue);
+      mouse.click(x, y, mouse_right);
+      chooseoption.Select('Climb-up', mouse_left);
+    end;
+  end;
+end;
+
+function walktobanker:boolean;
+begin
+  //walk to banker and interact, return true once bankscreen is up
+end;
+
+procedure bankhides;
+begin
+  //assemble code for walking to bank, banking, walking back
+  //walktogate;
+  //checkgate;
+  walktocastlestairs;
+  goupstairs;
+end;
+
+
+procedure burybones;
+begin
+  while (inventory.CountItem('bones') > 0) and (inventory.CountItem('Cowhide') < 28) do
+  begin
+    inventory.ClickItem('Bones');
+    writeln('burying');
+  end else
+  begin
+     //bankhides;
+     writeln('not banking at this time');
+  end;
+end;
+
+procedure grabbones;
+var
+  hide, TPA: TPointArray;
+  ATPA: T2DPointArray;
+  curBones: integer;
+  timar: tstopwatch;
+begin
+  if inventory.IsFull then
+  begin
+    Writeln('inventory is full, burying bones');
+    burybones;
+  end;
+
+  if srl.findcolors(TPA, CTS2(12303300, 4, 0.31, 0.15), mainscreen.bounds) then
+  begin
+    timar.Start;
+    writeln('looking for hides...');
+    ATPA := TPA.Cluster(2);
+    writeln('clustering TPAs into ATPA');
+    ATPA.FilterSize(25, 300);
+    writeln('filtering ATPAs');
+    ATPA.SortByIndex(Mainscreen.Center);
+    writeln('finding matching TPAs');
+    rsclient.image.clear;
+    rsclient.image.drawatpa(atpa);
+    for hide in ATPA do
+    begin
+      curbones:= inventory.CountItem('Bones');
+      writeln('hides detected');
+      mouse.move(hide[random(length(hide))]);
+      if mainscreen.IsUpText('Take', 50) then
+      begin
+        mouse.click(mouse_right);
+        chooseoption.Select('Take Bones', mouse_left);
+        writeln('grabbing bones');
+        mouse.move(hide[random(length(hide))]);
+        //writeln('grabbing hide');
+        //mouse.click(mouse_right);
+        //chooseoption.select('Take Cowhide', mouse_left);
+
+        repeat
+          writeln('still grabbing ' + inttostr(timar.ElapsedTime));
+          wait(randomrange(100, 176));
+        until((inventory.CountItem('Bones') > curbones) or (timar.ElapsedTime > randomrange(3000, 5000)));
+        exit;
+      end;
+    end;
+  end;
+end;
+
+procedure timerun;
+begin
+  writeln(srl.MsToTime(gettimerunning, time_short));
+end;
+
+procedure antibanstuff;
+begin
+end;
+
+procedure Getskillups;
+begin
+end;
+
+function iscowfought(boxxy: TBox): boolean;
+begin
+  result:= true;
+end;
+
+function unreachable: boolean;
+begin
+  if chat.GetMessage(1) = 'I can''t reach that!' then
+    Result:= true;
+end;
+
+procedure attackcow;
+var
+  x, y: integer;
+  cow, TPA: TPointArray;
+  ATPA: T2DPointArray;
+begin
+  if inventory.IsFull then
+  begin
+    writeln('inventory is full');
+    //dobank;
+    burybones;
+  end;
+
+  //if
+
+  writeln('looking for cows..');
+  if srl.findcolors(TPA, CTS2(5992577, 12, 0.33, 0.15), mainscreen.bounds) then
+  begin
+    ATPA := TPA.Cluster(5);
+    writeln('clustering TPAs into ATPA');
+    ATPA.FilterSize(50, 1000);
+    writeln('filtering ATPAs');
+    ATPA.SortByIndex(Mainscreen.Center);
+    writeln('finding matching TPAs');
+    timer.Start;
+    for cow in ATPA do
+    begin
+      if timer.ElapsedTime > 5000 then
+      begin
+        timer.Reset;
+        minimap.SetCompassAngle(randomrange(0, 359), 10);
+      end;
+
+      writeln('potential cow!');
+      writeln(timer.elapsedtime);
+      mouse.move(cow[random(length(cow))]);
+      if mainscreen.IsUpText('Attack Cow', 50) then
+      begin
+        mouse.click(mouse_left);
+        if mainscreen.DidRedClick then
+        begin
+          wait(randomrange(600, 1500));
+          if Chat.FindMessage('I can''t reach that!', [CHAT_COLOR_BLACK]) then
+          begin
+            writeln('Unreachable cow, adjusting angle and looking again');
+            Minimap.SetCompassAngle(Randomrange(1, 358), 10);
+          end else
+          begin
+            writeln('attacking');
+            repeat
+              writeln('still attacking');
+              wait(randomrange(100, 176));
+            until(not(srl.IsAnimating(box(248, 151, 266, 182), 150, 1000, 3)));
+            timer.Reset;
+            begin
+              writeln('cow is dead, grabbing bones');
+              wait(randomrange(1000, 2000));
+              grabbones;
+            end;
+          end;
+        end;
+        timerun;
+      end;
+    end else
+    begin
+      minimap.SetCompassAngle(randomrange(0, 359), 10);
+    end;
+  end;
+end;
+
+begin
+  cleardebug;
+  rsclient.image.Clear;
+  setup;
+  repeat
+    {if not rsclient.IsLoggedIn then
+    begin
+      declareplayer;
+      writeln('logging in...');
+      login.LoginPlayer;
+      Writeln('You aren''t logged in');
+      exit;
+    end else }
+
+
+    begin
+      repeat
+        writeln(srl.MsToTime(gettimerunning, time_short));
+        rsclient.image.clear;
+        rsclient.Image.DrawText(srl.MsToTime(gettimerunning, time_short), [550, 440], claqua);
+        attackcow;
+      until(not(rsclient.IsLoggedIn));
+
+      //burybones; //for banking debugging
+    end;
+  until((gettimerunning >= 14400000) and (rsclient.IsLoggedIn = false));
+end.

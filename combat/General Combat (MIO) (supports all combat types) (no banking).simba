@@ -1,0 +1,279 @@
+program Better_Combat_Script;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+const
+  whatmonster = 'Cow';     (* what monster to kill                                  *)
+  whatfood = 'Salmon';     (* what food to eat                                      *)
+  pshift = 210;            (* don't touch                                           *)
+  maxdist = 20;            (* max distance from start location before we walk back  *)
+  maxgrabattempts = 1;     (* max pick up attempts per kill                         *)
+  eatat = 70;              (* % health to eat at                                    *)
+
+var
+  wrlds: TIntegerArray;
+  maxruntimer: TStopwatch;
+  WalkIt: TRSWalker;
+  MonsterCTS1, MonsterCTS2:  TCTS2Color;
+  coolstuff: tstringarray;
+  xpbox: TBox;
+  zoomlev: integer;
+  startpoint: tpoint;
+  boner: trsitemarray;
+
+function isxpup: boolean;
+begin
+  rsclient.image.clear;
+  rsclient.image.DrawBox(xpbox, clwhite);
+  result:= srl.IsAnimating(xpbox, 200, 500, 4);
+end;
+
+function isattacking: boolean;
+begin
+  result:= srl.IsAnimating(mainscreen.GetPlayerBox, pshift, 500, 4);
+end;
+
+function splatcheck(area: tbox): boolean;
+var
+  splats: TRSHitsplatArray;
+  timerr: tstopwatch;
+begin
+  timerr.start;
+  while (length(splats) = 0) and (timerr.elapsedtime < 3000) do
+    splats:= mainscreen.FindHitsplats(area);
+  if length(splats) = 0 then
+  begin
+    writeln('No hitplats detected');
+    result:= false;
+  end else
+    result:= true;
+  timerr.reset;
+end;
+
+procedure burybones;
+begin
+  while inventory.FindItems(boner) do
+  begin
+    inventory.ClickItem(boner[random(length(boner))]);
+    writeln('burying');
+    wait(randomrange(200, 500));
+  end;
+end;
+
+procedure grabstuff;
+var
+  hide, TPA, eggtpa: TPointArray;
+  ATPA: T2DPointArray;
+  curBones: integer;
+  timar: tstopwatch;
+begin
+  if inventory.IsFull then
+  begin
+    Writeln('inventory is full, burying bones');
+    burybones;
+  end;
+
+  if srl.findcolors(TPA, CTS2(13092814, 12, 0.01, 0.10), mainscreen.bounds) or srl.findcolors(eggtpa, CTS2(1781156, 2, 0.17, 0.79), mainscreen.getplayerbox.Expand(100))  then
+  begin
+    rsclient.image.clear;
+    rsclient.image.drawtpa(tpa, clgreen);
+    atpa:= tpa.cluster(5);
+    atpa.sortbysize(10, true);
+    atpa.filtersize(5, 1500);
+    rsclient.image.drawatpa(atpa, [clyellow, clblack]);
+    timar.Start;
+    mouse.move(atpa.Biggest.Bounds);
+    begin
+      curbones:= inventory.Count;
+      writeln('bones detected');
+      if mainscreen.IsUpText('Take') then
+      begin
+        mouse.click(mouse_right);
+        chooseoption.Select(coolstuff, mouse_left);
+        writeln('grabbing bones');
+
+        repeat
+          writeln('still grabbing ' + inttostr(timar.ElapsedTime));
+          wait(randomrange(1000, 1760));
+        until((inventory.Count > curbones) or (timar.ElapsedTime > 5000));
+      end;
+      if inventory.IsFull then
+        inventory.ClickItem(whatfood);
+    end;
+  end;
+end;
+
+procedure attackcow;
+var
+  x, y, grab_attempts: integer;
+  cow, TPA: TPointArray;
+  ATPA: T2DPointArray;
+  antipoison: TRSItemArray;
+  timerr: tstopwatch;
+  HPBar: TRSHPBarArray;
+  splats: TRSHitsplatArray;
+  incombat: boolean;
+begin
+  if inventory.IsFull then
+  begin
+    writeln('inventory is full');
+    burybones;
+  end;
+
+  timerr.start;
+
+  antipoison:= ['Antipoison(1)', 'Antipoison(2)', 'Antipoison(3)', 'Antipoison(4)'];
+
+  writeln('looking for ' + whatmonster + '..');
+
+  if srl.findcolors(TPA, MonsterCTS1, mainscreen.bounds) then
+  begin
+    rsclient.image.DrawTPA(TPA, clred);
+    ATPA := TPA.Cluster(5);
+    writeln('clustering TPAs into ATPA');
+    ATPA.FilterSize(3, 1500);
+    writeln('filtering ATPAs');
+    ATPA.SortByIndex(Mainscreen.Center);
+    rsclient.image.DrawATPA(ATPA, [clgreen, clblue]);
+    writeln('finding matching TPAs');
+    timerr.Start;
+
+    for cow in ATPA do
+    begin
+      writeln('potential monster');
+
+      if timerr.ElapsedTime > 55000 then
+      begin
+        timerr.Reset;
+        minimap.SetCompassAngle(randomrange(0, 359), 10);
+      end;
+
+      writeln(timerr.elapsedtime);
+      mouse.move(cow[random(length(cow))]);
+
+      if mainscreen.IsUpText('Attack', 100) then
+      begin
+        mouse.click(mouse_left);
+
+        if mainscreen.DidRedClick then
+        begin
+          wait(randomrange(600, 1500));
+
+          if Chat.FindMessage('I can''t reach that!', [CHAT_COLOR_BLACK]) then
+          begin
+            writeln('Unreachable rat, adjusting angle and looking again');
+            Minimap.SetCompassAngle(Randomrange(1, 358), 10);
+          end else
+
+
+          writeln('attacking');
+          repeat
+            if (minimap.GetHPpercent <= eatat) and inventory.FindItem(whatfood) then
+            begin
+              writeln('Low health; Eating..');
+              while minimap.GetHPPercent < 90 do
+                inventory.ClickItem(WhatFood);
+            end;
+
+            if (length(hpbar) > 0) or splatcheck(mainscreen.Bounds) then
+            begin
+              writeln('we are in combat');
+              incombat:= true;
+            end else
+            begin
+              writeln('we are not in combat');
+              incombat:= false;
+            end;
+
+            if minimap.IsPlayerMoving then
+              while minimap.IsPlayerMoving do
+                wait(31);
+
+            rsclient.image.DrawBox(box(mainscreen.Bounds.Middle, 240, 240), clyellow);
+            hpbar:= mainscreen.FindHPBars(box(mainscreen.Bounds.Middle, 240, 240));
+            writeln(hpbar);
+
+
+            if minimap.IsPoisoned and inventory.finditems(antipoison) then
+            begin
+              inventory.ClickItem(antipoison[low(antipoison)]);
+            end;
+
+            if (walkit.GetMyPos.DistanceTo(startpoint) > maxdist) and (incombat = false) then
+            begin
+              writeln('Out of bounds. Walking back.');
+              walkit.WalkBlind(startpoint, 3);
+            end;
+
+            rsclient.image.clear;
+            rsclient.image.DrawBox(box(mainscreen.Center, 20, 30), clred);
+            rsclient.Image.DrawText(inttostr(srl.GetPixelShift(mainscreen.GetPlayerBox, 200)), [50, 50], clblue);
+
+          until(((splatcheck(mainscreen.Bounds) = false) and (isattacking = false) and (isxpup = false)) or (incombat = false) or (timerr.elapsedtime > 90000));
+
+          timerr.Reset;
+
+          begin
+            writeln(whatmonster + 'is dead, grabbing stuff');
+            grab_attempts:= 0;
+
+            repeat
+              grabstuff;
+              grab_attempts:= grab_attempts + 1;
+            until(grab_attempts = maxgrabattempts);
+
+          end;
+        end;
+      end;
+    end;
+    begin
+      case random(70) of
+
+        0: minimap.SetCompassAngle(randomrange(0, 359), 10);
+
+        1..68: writeln('not changing compass angle or walking');
+
+        69: walkit.WalkBlind([startpoint.X+5, startpoint.y+5], 2);
+
+      end;
+    end;
+  end;
+end;
+
+procedure setupp;
+begin
+  if not rsclient.IsLoggedIn then
+    exit;
+
+  case whatmonster of
+
+    'Cockatrice': begin MonsterCTS1:= CTS2(3040112, 8, 0.44, 1.55); boner:= ['Bones']; zoomlev:= 45; end; //cockatrices
+    'Skeleton': begin monsterCTS1:= CTS2(8752526, 7, 0.28, 0.16); boner:= ['Bones']; zoomlev:= 40; end; // skeletons
+    'Hobgoblin': begin monstercts1:= CTS2(1601175, 5, 0.04, 0.51); boner:= ['Bones']; zoomlev:= 50; end; //hobgoblins
+    'Cow': begin Monstercts1:= CTS2(1193293, 7, 0.67, 5.76); boner:= ['Bones']; zoomlev:= 32; end; //cows (shitty)
+    'Goblin': begin monsterCTS1:= CTS2(4630436, 4, 0.21, 0.24); boner:= ['Bones']; zoomlev:= 45; end; //goblins
+    'Frog': begin monstercts1:= CTS2(871686, 7, 0.28, 2.64); boner:= ['Big bones', 'Bones']; zoomlev:= 45; end; //frogs
+    'Dark Wizard': begin monstercts1:= CTS2(2899262, 5, 0.23, 0.43); boner:= ['Bones']; zoomlev:= 40; end; //dark wizard
+    'Moss giant': begin monstercts1:= CTS2(4878701, 8, 0.35, 0.60); boner:= ['Big bones']; zoomlev:= 45; end; //moss giants
+    'Red spider': begin Monstercts1:= CTS2(3747235, 10, 0.37, 1.86); boner:= ['Red spider eggs']; zoomlev:= 40; end; //red spiders
+
+  end;
+
+  coolstuff:= ['Big', 'Coins', 'Rune', 'rune', 'Dragon', 'scroll', 'boots', 'Grimy', 'Bones', 'Uncut', 'Mystic', 'Snapdragon', 'Red'];
+
+  srl.Setup;
+  walkit.Setup('world');
+  options.SetZoomLevel(zoomlev);
+  minimap.SetCompassAngle(randomrange(1, 270));
+  xpbox:= box(466, 45, 514, 169);
+  startpoint:= walkit.GetMyPos;
+  writeln(startpoint);
+
+end;
+
+begin
+  setupp;
+  while rsclient.isloggedin do
+    attackcow;
+
+end.

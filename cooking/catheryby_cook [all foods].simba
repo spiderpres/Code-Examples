@@ -1,0 +1,165 @@
+program catherbycooker;    //start at catherby bank
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+const
+  maxruntime = 300;                //in minutes
+  tocook     = 'Raw anglerfish';   //raw variant
+  drawdebug  = false;              //doesnt run script, only draws
+
+var
+  kitchentile, stovetile, banktile, bankertile: tpoint;
+  bankcol, stovecol: tcts2color;
+  walkit: trswalker;
+  raw: trsbankwithdrawitem;
+  maxtimeMS, trips, brkcounter: integer;
+
+function walkto(loc: string): boolean;
+begin
+  case loc of
+    'bank': result:= walkit.WebWalk(banktile);
+    'stove': result:= walkit.WebWalk(stovetile);
+  end;
+end;
+
+function clickstove: boolean;
+begin
+  mousetile(walkit, stovetile, true);
+
+  if mainscreen.IsUpText('Cook') then
+    mouse.click(mouse_left);
+
+  result:= mainscreen.DidRedClick;
+end;
+
+function clickbank: boolean;
+begin
+  mousetile(walkit, bankertile, true);
+
+  if mainscreen.IsUpText('Bank') then
+    mouse.click(mouse_left);
+
+  result:= mainscreen.DidRedClick;
+end;
+
+function dobank: boolean;
+begin
+  writeln('banking');
+  if clickbank then
+  begin
+    while minimap.IsPlayerMoving do
+      wait(150);
+  end else
+    exit;
+
+  while not bank.isopen do
+    wait(150);
+
+  if bank.IsOpen then
+    if bank.DepositAll then
+      writeln('deposited everything');
+
+  if bank.FindItem(raw.Item) then
+  begin
+    if bank.WithdrawItem(raw, true) then
+      while not inventory.FindItem(raw.Item) do
+        wait(150);
+  end else
+    terminatescript('Out of supplies!');
+
+  if inventory.FindItem(raw.Item) then
+    result:= bank.close;
+end;
+
+function cookem: boolean;
+var
+  timar: tstopwatch;
+begin
+  if not inventory.FindItem(raw.Item) then
+    if not dobank then
+      exit;
+
+  timar.Start;
+
+  if clickstove then
+  begin
+    while minimap.IsPlayerMoving and (timar.ElapsedTime < 30000) do
+      wait(150);
+  end else
+    exit(false);
+
+  getdistracted(250, 10000, brkcounter);
+
+  if (timar.ElapsedTime > 30000) then
+    exit;
+
+  while (timar.ElapsedTime < 30000) and not make.IsOpen do
+    wait(150);
+
+  if make.IsOpen then
+    if make.Select(0, -1, false) then
+      while inventory.FindItem(raw.Item) do
+        wait(150);
+
+  getdistracted(10, 6000, brkcounter);
+
+  timar.Reset;
+
+  result:= not inventory.FindItem(raw.Item); //the function should return false, which means we cooked them. flip bool with 'not'.
+end;
+
+{
+procedure countexp;
+begin
+  //after done cooking
+  cooked:= inventory.countitem(cooked karambwan)
+  xp_gained::= cooked * 190;
+
+  total_xp_gained:= total_xp_gained + xp_gained;
+  writeln(total_xp_gained);
+end;}
+
+
+procedure setupp;
+begin
+  walkit.Setup('world');
+  options.SetZoomLevel(0);
+
+  banktile:= [3050, 2685];
+  bankertile:= [3050, 2681];
+  kitchentile:= [3077, 2676];
+  stovetile:= [3082, 2671];
+
+  raw.Item:= tocook;
+  raw.Noted:= false;
+  raw.Quantity:= -1;
+
+  maxtimems:= maxruntime * 60000;
+  trips:= 0;
+
+  inventory.Open;
+
+end;
+
+begin
+  setupp;
+
+  if drawdebug then
+    while rsclient.IsLoggedIn do
+    begin
+      drawpos(walkit);
+      drawtile(walkit, stovetile, clgreen);
+      drawtile(walkit, bankertile, clyellow);
+    end;
+
+  while rsclient.IsLoggedIn and (gettimerunning < maxtimems) do
+    if cookem then
+      if dobank then
+      begin
+        trips:= trips + 1;
+        writeln('Reset and ready! trips: ' + tostr(trips));
+        writeln('time left: ' + srl.mstotime((maxtimems - gettimerunning), Time_Abbrev));
+        getdistracted(7, 13000, brkcounter);
+      end;
+end.

@@ -1,0 +1,248 @@
+program runecrafter;         //start with air. start at bank
+{$define srl_use_remoteinput}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+const
+  drawdebug = true;
+  whatrune = 'body';
+
+{type runer = record
+  bankloc, ruinsloc: tpoint;
+  ruinscol, portalcol: TCTS2Color;
+
+end; }
+
+var
+  walkit: trswalker;
+  bankloc, banktile, ruinsloc, altarloc, portalloc: tpoint;
+  bankbox: tbox;
+  bankcol, ruinscol, portalcol, altarcol: TCTS2Color;
+  runescrafted: integer;
+
+
+procedure drawtile(walkercoords: tpoint);
+begin
+  rsclient.image.DrawBox(minimap.PointToMsBox(walkit.WorldToMM(walkercoords)), clwhite);
+end;
+
+procedure setupruner;
+begin
+  case whatrune of
+    'air': begin
+             bankloc:= [3860, 3029];    //tile to walk to
+             banktile:= [3860, 3033];   //tile to click
+             ruinsloc:= [3752, 3272];   //tile to walk to
+             altarloc:= [6569, 128];    //tile to walk to
+             portalloc:= [6556, 142];   //tile to walk to
+             bankbox:= minimap.PointToMsBox(walkit.WorldToMM(banktile)); //tile to click
+
+             bankcol:= CTS2(5404047, 3, 0.15, 2.17);
+             ruinscol:= CTS2(4475213, 12, 0.28, 0.23);
+             portalcol:= CTS2(9157314, 10, 0.11, 1.25);
+             altarcol:= CTS2(4606285, 11, 0.51, 0.26);
+           end;
+
+    'body': begin
+             bankloc:= [4186, 2484];    //tile to walk to
+             banktile:= [4189, 2484];   //tile to click
+             ruinsloc:= [4020, 2660];   //tile to walk to
+             altarloc:= [6569, 128];    //tile to walk to
+             portalloc:= [6556, 142];   //tile to walk to
+             bankbox:= minimap.PointToMsBox(walkit.WorldToMM(banktile)); //tile to click
+
+             bankcol:= CTS2(5404047, 3, 0.15, 2.17);
+             ruinscol:= CTS2(4475213, 12, 0.28, 0.23);
+             portalcol:= CTS2(9157314, 10, 0.11, 1.25);
+             altarcol:= CTS2(4606285, 11, 0.51, 0.26);
+           end;
+  end;
+end;
+
+function walkto(loc: string):boolean;
+begin
+  case loc of
+    'ruins':  result:= walkit.webwalk(ruinsloc, 2, 0.25);
+    'bank':   result:= walkit.webwalk(bankloc, 2, 0.25);
+    'altar':  if walkit.IsWalkable(altarloc, walkit.GetMyPos, minimap.GetCompassAngle(false)) then
+              begin
+                writeln('Altar is walkable');
+                result:= walkit.walkblind(altarloc, 2);
+              end else
+              begin
+                writeln('Altar not walkable');
+                exit;
+              end;
+
+    'portal': result:= walkit.walkblind(portalloc, 2);
+  end;
+end;
+
+function findobj(TPA: TPointArray; Color: tcts2color; showbox:boolean = false; bounds: tbox):TPointArray;
+var
+  ATPA: T2DPointarray;
+begin
+  if srl.FindColors(tpa, color, bounds) then
+  begin
+    atpa:= tpa.Cluster(5);
+    tpa:= atpa.Biggest;
+    if showbox then rsclient.image.DrawBox(tpa.Bounds, clgreen);
+    result:= tpa;
+  end;
+end;
+
+function clickruins: boolean;
+var
+  ruinstpa: tpointarray;
+begin
+  if (length(findobj(ruinstpa, altarcol, true, mainscreen.Bounds)) > 0) then
+  begin
+    ruinstpa:= findobj(ruinstpa, altarcol, true, mainscreen.Bounds);
+    rsclient.image.DrawCircle(ruinstpa.Bounds.Middle, 15, clwhite);
+    mouse.move(ruinstpa.Bounds);
+  end;
+
+  if mainscreen.IsUpText('Enter') then
+    mouse.click(mouse_left);
+
+  result:= mainscreen.DidRedClick;
+  rsclient.Image.clear;
+end;
+
+function clickaltar: boolean;
+var
+  altartpa: tpointarray;
+begin
+  if (length(findobj(altartpa, altarcol, true, mainscreen.Bounds)) > 0) then
+  begin
+    altartpa:= findobj(altartpa, altarcol, true, mainscreen.Bounds);
+    rsclient.image.DrawCircle(altartpa.Bounds.Middle, 15, clwhite);
+    mouse.move(altartpa.Bounds.Middle);
+  end;
+
+  if mainscreen.IsUpText('Craft') then
+    mouse.click(mouse_left);
+
+  result:= mainscreen.DidRedClick;
+  rsclient.Image.clear;
+end;
+
+function clickportal: boolean;
+var
+  portaltpa: tpointarray;
+begin
+  if (length(findobj(portaltpa, portalcol, true, mainscreen.Bounds)) > 0) then
+    portaltpa:= findobj(portaltpa, portalcol, true, mainscreen.Bounds);
+
+  mouse.move(portaltpa.Bounds);
+
+  if mainscreen.IsUpText('Use') then
+    mouse.click(mouse_left);
+
+  result:= mainscreen.DidRedClick;
+  rsclient.Image.clear;
+end;
+
+function findrunes: boolean;
+begin
+  result:= not inventory.FindItem('Pure essence');
+end;
+
+function dobank: boolean;
+var
+  banktpa: tpointarray;
+begin
+  if (length(findobj(banktpa, bankcol, true, bankbox)) > 0) then
+  begin
+    banktpa:= findobj(banktpa, bankcol, true, bankbox);
+    rsclient.image.DrawTPA(banktpa, clblue);
+    mouse.move(banktpa.Bounds);
+    if mainscreen.IsUpText('Bank Bank') then
+      mouse.click(mouse_left);
+    if mainscreen.DidRedClick then
+      while not bank.IsOpen do
+        wait(150);
+
+    if bank.IsOpen then
+    begin
+      bank.DepositAll;
+      if bank.FindItem('Pure essence') then
+        if bank.WithdrawItem(['Pure Essence', -1, false], true) then
+          writeln('withdrew essence!');
+    end;
+
+    while not inventory.FindItem('Pure essence') do
+      wait(150);
+
+    if inventory.FindItem('Pure essence') then
+      result:= bank.close;
+  end;
+  rsclient.Image.clear;
+end;
+
+procedure craftrunes;
+begin
+  //starting at bank with tiara equipped and empty inventory
+  if inventory.FindItem('Pure essence') then
+    if walkto('ruins') then
+      writeln('walked to the ruins!');
+
+  if clickruins then
+    writeln('clicked ruins!');
+
+  wait(randomrange(1200, 3000));
+
+  //if walkto('altar') then
+  //  writeln('Walked to altar!');
+
+  if clickaltar then
+  begin
+    wait(randomrange(800, 1600));
+    while not findrunes do
+      wait(1500);
+  end;
+
+  wait(randomrange(1500, 3000));
+
+  if findrunes then
+    writeln('crafted runes!');
+
+  if clickportal then
+    while walkit.IsWalkable(altarloc, walkit.GetMyPos, minimap.GetCompassAngle(false)) do
+      wait(150);
+
+  if walkto('bank') then
+    writeln('Walked to the bank!');
+
+  if dobank then
+    writeln('banking completed!');
+end;
+
+procedure setupp;
+begin
+  walkit.Setup('world');
+  walkit.AdaptiveWalk:= true;
+  setupruner;
+end;
+
+begin
+  rsclient.image.clear;
+  setupp;
+  if drawdebug then
+  begin
+    repeat
+      drawpos(walkit);
+      drawtile(portalloc);
+      drawtile(ruinsloc);
+      drawtile(bankloc);
+      drawtile(banktile);
+    until not rsclient.IsLoggedIn;
+  end;
+
+ { while rsclient.IsLoggedIn do
+  begin
+    craftrunes;
+    writeln(srl.TimeRunning);
+  end;    }
+  walkto('ruins');
+end.

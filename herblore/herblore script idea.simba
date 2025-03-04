@@ -1,0 +1,20 @@
+program herblore;
+
+
+{
+      withdraw herbs             x9
+      withdraw water vials       x9
+      withdraw extra ingredient  x9
+
+
+      use herbs > water vial
+      wait until herbs are gone
+      use extra ingredient on unf pot
+      wait until extra ingrediant is gone
+
+      bank
+
+}
+
+begin
+end.

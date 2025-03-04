@@ -1,0 +1,176 @@
+{ Kills baby blue dragons in taverly dungeon using melee, ranged or magic.
+  Avoids regular dragons using a safespot
+  teleports when out of food and health is low
+
+    TODO:
+      - finish banking & walking procedures so this can be left unattended.
+      -
+}
+program baby_blue_dragons;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+const
+  debugger = false;              //draws
+  whatfood = 'Cooked karambwan'; //case sensitive
+  tele = 'Falador Teleport';     //case sensitive, only single click teleports in invy
+  safedistance = 24;
+
+//for banking and walkback procedures.
+type
+  walkspots = record
+    bankloc, shortcutloc, dungeon_entrance, dungeon_ladder, gateloc, gate2loc, demongate, babydragonloc: tpoint;
+  end;
+
+var
+  walkit: TRSWalker;
+  homepoint: tpoint;
+  walkpoints: walkspots;
+  babydrags: tcts2color:= CTS2(8145999, 14, 0.38, 1.36);
+
+//failsafe for low health using teletabs
+function teleout: boolean;
+var
+  currentloc: tpoint:= walkit.GetMyPos;
+begin
+  if inventory.FindItem(tele) then
+  begin
+    writeln('teleporting to falador');
+    inventory.ClickItem(tele);
+    while (walkit.GetMyPos = currentloc) do //need to add timer failsafe
+      wait(151);
+
+    if walkit.GetMyPos <> currentloc then
+    begin
+      writeln('teleported out');
+      result:= true;
+    end else
+    begin
+      writeln('something went wrong');
+      result:= false;
+    end;
+  end else
+  begin
+    writeln('no teleports');
+    result:= false;
+  end;
+end;
+
+
+//checks distance from safespot and runs back if too far to avoid regular dragons
+function farfromhome: boolean;
+begin
+  if (walkit.GetMyPos.DistanceTo(homepoint) > safedistance) then
+  begin
+    writeln('walking to safe point');
+
+    if not debugger then
+      walkit.WalkBlind(homepoint, 18);
+
+    result:= (walkit.GetMyPos.DistanceTo(homepoint) > safedistance);
+  end;
+  result:= (walkit.GetMyPos.DistanceTo(homepoint) > safedistance);
+end;
+
+procedure attackbabydrags;
+var
+  dragonTPA: TPointArray;    //array of all colors matching dragon
+  dragonATPA: T2dPointArray; //array of clustered points for individual dragons
+  dragonboxes: tboxarray;    //helps fine-tune ATPA clustering
+  timar: tstopwatch;
+begin
+  if srl.FindColors(Dragontpa, babydrags, mainscreen.Bounds) then
+  begin
+    timar.Start;
+
+    //process the points of color
+    dragonatpa:= dragontpa.Cluster(6);   //clusters all points that are within 6 pxls into a group.
+    dragonatpa.FilterSize(100, __GT__);  //filters groups smaller than 100 points
+    dragonboxes:= dragonatpa.ToTBA;      //draws box around the cluster. Goal is one babydragon sized box per babydragon.
+    dragonboxes.SortFromMidPoint(mainscreen.Bounds.Middle);
+    rsclient.image.drawboxes(dragonboxes, clred);
+
+    if dragonboxes.Len > 0 then  //if dragons are on screen, start attack process
+    begin
+      writeln('Attacking');
+      mouse.move(dragonboxes[0]);
+    end else
+      exit;  //if none found, search again
+
+    if mainscreen.IsUpText('Attack Baby') then
+      mouse.Click(mouse_left);
+
+    wipe;  //cleans data drawn on screen
+
+    if mainscreen.DidRedClick then    //checks for successful click
+    begin
+      while minimap.IsPlayerMoving do  //wait while we walk to dragon
+        wait(500);
+
+      while (length(mainscreen.FindHPBars) < 1) and (timar.ElapsedTime < 10000) do  //wait for HP bars to pop up, signalling combat.
+      begin
+        writeln('timer: ' + tostr(timar.ElapsedTime));
+        wait(500);
+      end;
+
+      while not(farfromhome) and (length(mainscreen.FindHPBars) > 0) do  //safezone and combat check
+      begin
+        if not inventory.FindItem(whatfood) and (minimap.GetHPPercent < 25) and inventory.FindItem(tele) then   //low health failsafe
+          if teleout then
+          begin
+            terminatescript('teleported out');
+            //bank, get food, walk back
+          end;
+
+        if inventory.finditem(whatfood) and (minimap.GetHPPercent < 50) then  //eats food when low health
+          while (minimap.GetHPPercent < 85) do
+          begin
+            inventory.ClickItem(whatfood);
+            wait(randomrange(150, 300));
+          end;
+
+        lineprinter(['time running: ' + tostr(srl.TimeRunning), 'distance from safepoint: ' + tostr(round(walkit.GetMyPos.DistanceTo(homepoint))), 'HP %: ' + tostr(minimap.GetHPPercent)]);
+        wait(150);
+      end;
+
+    end;
+  end;
+end;
+
+procedure killem;
+begin
+  while not farfromhome do
+    attackbabydrags;
+end;
+
+procedure setupp;
+begin
+  srl.Setup;
+  walkit.Setup('world');
+  walkit.ClickRandomness:= 10;
+  options.SetZoomLevel(randomrange(48, 52));
+  homepoint:= [6320, 534];
+
+  //points to walk to from falador and thru dungeon.
+  walkpoints.bankloc:= [3593, 2977];
+  walkpoints.shortcutloc:= [3554, 3029];
+  walkpoints.dungeon_entrance:= [3345, 2865];
+  walkpoints.dungeon_ladder:= [6189, 554];
+  walkpoints.gateloc:= [6205, 419];
+  walkpoints.gate2loc:= [6221, 435];
+  walkpoints.demongate:= [6349, 527];
+  walkpoints.babydragonloc:= [6320, 534];
+
+end;
+
+begin
+  setupp;
+
+  if debugger then //draws coordinates for debugging
+    while rsclient.IsLoggedIn do
+      lineprinter([tostr(walkit.GetMyPos), tostr(walkit.GetMyPos.DistanceTo(homepoint)), tostr(farfromhome)]);
+
+  while rsclient.IsLoggedIn do
+    killem;
+end.

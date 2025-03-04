@@ -1,0 +1,107 @@
+program diamond_necklace_alcher; //to eventually include alching
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+{
+nat runes in inventory slot 0, noted necklaces in slot 1
+ }
+
+const
+  toalch = 'Phoenix Necklace';
+
+var
+  alchables: integer;
+
+procedure withdrawnecklaces;
+begin
+  //find, withdraw, close bank
+end;
+
+procedure depositnecklaces;
+begin
+  //find bank, open, deposit
+  if (inventory.IsFull = true) and (inventory.FindItem(necklace) = false) then
+  begin
+    bank.open(ERSBankLocation.GRAND_EXCHANGE);
+    wait(randomrange(21, 700));
+  end;
+
+  if bank.IsOpen then
+  begin
+    bank.DepositItem(['Phoenix Necklace', -1], false);
+    wait(randomrange(21, 700));
+  end;
+
+  if not inventory.isfull then
+  begin
+    bank.WithdrawItem([necklace, -1, false], false);
+    wait(randomrange(21, 700));
+  end;
+
+  if inventory.FindItem(necklace) then
+  begin
+    bank.close;
+    wait(randomrange(21, 700));
+  end;
+end;
+
+procedure randomoffscreen;
+begin
+  case random(10000) of
+
+    0..49:    begin
+                mouse.move(0, randomrange(0, 500));
+                writeln('getting distracted');
+                wait(randomrange(10031, 24981));
+              end;
+
+    50..9999: begin
+                writeln('not getting distracted');
+              end;
+
+  end;
+end;
+
+
+procedure alch;  //need to add xp gain detection, maybe a timeout
+var
+  timerr: tstopwatch;
+begin
+  magic.CastSpell(ERSSpell.HIGH_LEVEL_ALCHEMY);
+  repeat
+    wait(randomrange(21, 301));
+  until(inventory.IsOpen = true);
+
+  alchables:= inventory.CountItemStack('Rune javelin heads');
+
+  if not inventory.IsSlotUsed(1) then
+    terminatescript('Out of alchables');
+
+  if inventory.IsSlotUsed(1) then
+  begin
+    inventory.Clickslot(1);
+    timerr.Start;
+    repeat
+      wait(randomrange(21, 301));
+
+      randomoffscreen;
+    until((gametabs.GetCurrentTab = ERSGameTab.MAGIC) or (timerr.ElapsedTime > randomrange(2500, 5000)) );
+    timerr.Reset;
+  end;
+end;
+
+
+
+procedure setupp;
+begin
+  srl.Setup;
+end;
+
+
+begin
+  setupp;
+  repeat
+    alch;
+    writeln('there are: ' + tostr(alchables) + ' left');
+  until(not(rsclient.IsLoggedIn));
+end.

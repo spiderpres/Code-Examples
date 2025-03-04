@@ -1,0 +1,208 @@
+program amuletstringer;   //strings amulets with balls of wool at lumby basement bank
+{$DEFINE SRL_USE_REMOTEInPUT}
+{$i srl/osr.simba}
+
+var
+  bankcolor: tcts2color;
+  uamulet, samulet, bwool: TRSBankWithdrawItem;
+  xpbox: tbox;
+  maxruntimems, totalamulets, attempts: integer;
+
+const
+  amulet_u = 'Topaz amulet (u)'; //unstrung amulet
+  tamulet = 'Topaz amulet';      //after stringing
+
+  ballwool = 'Ball of wool';     //Don't touch
+
+  banktab = 4;                   //banktab for items
+
+  maxruntime = 90;               //minutes
+
+
+
+function ClickChest: boolean;
+var
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+  timerr: tstopwatch;
+begin
+  timerr.start;
+  if srl.FindColors(TPA, bankcolor, mainscreen.Bounds) then
+  begin
+    ATPA:= tpa.Cluster(2);
+    rsclient.Image.DrawTPA(atpa.Biggest, clgreen);
+    mouse.move(ATPA.Biggest.Bounds);
+
+
+    if mainscreen.IsUpText('Bank') or mainscreen.IsUpText('Use') then
+    begin
+      mouse.click(mouse_left);
+      if not mainscreen.DidRedClick then
+        mouse.click(mouse_left);
+      if mainscreen.DidRedClick then
+      begin
+        wait(randomrange(500, 1000));
+        result:= bank.IsOpen;
+      end;
+    end else
+      mouse.move(tpa.Bounds, true);
+
+  end;
+end;
+
+
+// to implement:
+{
+const
+  whatbank = 'Lumbridge basement';
+
+function openbank(what_bank: string):boolean;
+begin
+  case what_bank of
+    'GE': grand exchange stuff
+    'Lumbridge Basement': lumbridge basement stuff
+    etc
+
+  end;
+
+  result:= bank.isopen;
+end;
+
+begin
+  if openbank(whatbank) then
+    //withdraw shit
+
+end;
+}
+
+function bankerr: boolean;
+begin
+  if not bank.isopen then
+  begin
+    clickchest;
+
+    if mainscreen.DidRedClick and(not(bank.isopen)) then
+      while not bank.IsOpen do
+        wait(31);
+
+  end;
+
+  if bank.IsOpen and inventory.finditem(tamulet) then
+  begin
+    writeln('depositing strung amulets');
+    bank.DepositAll;
+    while inventory.FindItem(tamulet) do
+      wait(31);
+  end;
+
+  if (inventory.Count = 0) then
+  begin
+
+    if bank.FindItem(uamulet.Item) then
+    begin
+      //totalamulets:= bank.CountItem(tamulet);
+      bank.WithdrawItem(uamulet, false);
+    end else
+      terminatescript('Out of supplies');
+
+    while not inventory.FindItem(uamulet.Item) do
+      wait(31);
+
+    if inventory.FindItem(uamulet.Item) then
+      if bank.FindItem(bwool.Item) then
+        if bank.WithdrawItem(bwool, false) then
+          writeln('got wool');
+
+    while not inventory.FindItem(bwool.Item) do
+      wait(31);
+
+    if inventory.FindItems([uamulet.Item, bwool.Item]) then
+      result:= bank.close;
+
+    //writeln(totalamulets);
+    result:= bank.close;
+
+  end;
+
+end;
+
+procedure stringem;
+var
+  amulets: integer;
+begin
+  if inventory.FindItems([amulet_u, ballwool]) then
+  begin
+    inventory.use(amulet_u, ballwool);
+    waitex(300, 20);
+
+    while not make.isopen do
+      wait(400);
+
+    if make.IsOpen then
+    begin
+      make.Select(0, -1, true);
+      while make.IsOpen do
+        wait(10);
+    end;
+
+    while inventory.FindItems([amulet_u, ballwool]) do
+    begin
+      amulets:= inventory.CountItem(tamulet);
+      writeln(amulets);
+      wait(1500);
+    end;
+  end else
+    if bankerr then
+      writeln('banking done!');
+
+  amulets:= inventory.CountItem(tamulet);
+
+  if amulets > 10 then
+  begin
+    writeln('strung ''em!');
+
+    if bankerr and (attempts < 3) then
+    begin
+      writeln('new supplies aquired');
+      attempts:= 0;
+    end else
+    begin
+      if attempts = 3 then
+        terminatescript(tostr(attempts) + ' Banking attempts failed. terminating script.');
+
+      writeln('something went wrong');
+      attempts:= attempts + 1;
+    end;
+  end else
+    if not inventory.FindItem(tamulet) then
+      exit;
+end;
+
+
+procedure setupp;
+begin
+  srl.setup;
+
+  uamulet.Item:= amulet_u;
+  uamulet.Noted:= false;
+  uamulet.Quantity:= 14;
+  bwool.item:= ballwool;
+  bwool.noted:= false;
+  bwool.quantity:= 14;
+  bankcolor:= CTS2(1055335, 3, 0.27, 1.31);
+
+  xpbox:= box(468, 44, 513, 157);
+
+  maxruntimems:= maxruntime * 60000;
+
+  attempts:= 0;
+
+end;
+
+begin
+  setupp;
+
+  while rsclient.IsLoggedIn and (gettimerunning < maxruntimems) do
+    stringem;
+
+end.

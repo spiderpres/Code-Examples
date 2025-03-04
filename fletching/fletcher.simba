@@ -1,0 +1,80 @@
+program fletcher;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+const
+  logs = 'Oak logs';
+
+var
+  setchat: TRSChatButtons;
+  banklogs: TRSBankWithdrawItem;
+
+{ fletching step-by-step
+
+1. start in lumby downstairs bank with knife in inventory
+2. check inventory for logs
+3. if not found, open bank
+4. withdraw them
+5. close bank
+6. use knife on logs
+7. select option for bow
+7. wait until inventory.finditem(logs) = false
+8. open bank
+9. deposit unstrung bows
+10. withdraw logs
+11. repeat
+}
+
+procedure setupp;
+begin
+  banklogs.Item:= logs;
+  banklogs.Noted:= false;
+  banklogs.Quantity:= all;
+
+  srl.setup;
+
+  options.SetZoomLevel(randomrange(45, 55));
+
+
+end;
+
+function openbankchest: boolean;
+begin
+
+
+  result:= bank.isopen;
+end;
+
+function withdrawlogs: boolean;
+begin
+  bank.WithdrawItem(banklogs, true);
+end;
+
+function havelogs: boolean;
+begin
+  result:= inventory.FindItem(logs);
+end;
+
+function haveknife: boolean;
+begin
+  result:= inventory.FindItem('Knife');
+end;
+
+function setgamechat: boolean;
+begin
+  result:= setchat.open(GAME_CHAT);
+end;
+
+function donefletching: boolean;
+begin
+  if inventory.finditem(logs) then
+    result:= false;
+
+  else
+    result:= true;
+
+end;
+
+
+begin
+end.

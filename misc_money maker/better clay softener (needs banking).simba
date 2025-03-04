@@ -1,0 +1,240 @@
+program betterclaysoftener;
+//softens clay real good
+//need to add a fail counter; terminate on 3 strikes.
+{$define srl_use_remoteinput}
+{$i SRL/osr.simba}
+
+var
+  softclaycount, totalclaysoftened: integer;
+  walkit: trswalker;
+  clayy, softclay: TRSBankWithdrawItem;
+
+procedure walkto(destination: String);
+begin
+  case destination of
+
+    'Fountain': begin
+                  walkit.WebWalk([4652, 2748], 1, 0.7);
+                  minimap.SetCompassAngle(0, 10)
+                end;
+
+      'VEBank': begin
+                  minimap.SetCompassAngle(randomrange(1, 7));
+                  walkit.WebWalk(worldweb.LOCATION_VARROCK_WBANK, 2, 0.6);
+                end;
+  end;
+end;
+
+procedure depositclay;
+var
+  TPA2, bankbooth: TPointArray;
+  ATPA2: T2DPointArray;
+  clickticker: integer;
+begin
+  if srl.FindColors(TPA2, CTS2(7440528, 6, 0.22, 0.26), mainscreen.Bounds) then
+  begin
+    atpa2 := tpa2.cluster(1);
+    writeln('assigned ATPA');
+    ATPA2.FilterSize(20, 100);
+    ATPA2.SortByMiddle(mainscreen.Center);
+    writeln('bank atpa filtered and sorted');
+    rsclient.image.DrawATPA(ATPA2);
+
+    for bankbooth in ATPA2 do
+    begin
+      writeln('Clicking bankbooth');
+      mouse.move(bankbooth[random(length(bankbooth))]);
+
+      if mainscreen.IsUpText('Bank Bank booth', 100) then
+      begin
+        mouse.click(mouse_left);
+
+        if mainscreen.DidRedClick then888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+        begin
+          writeln('red click confirmed');
+          wait(randomrange(1500, 2000));
+
+          if bank.IsOpen then
+          begin
+            writeln('depositing');
+            writeln(inventory.FindItem('Soft Clay'));
+            inventory.ClickItem('Soft clay');
+            bank.clickItem('Clay');
+            bank.Close(false);
+          end;
+
+        end else
+
+        begin
+          writeln('did not red click; terminating script.');
+          terminatescript;
+        end;
+      end;
+    end;
+  end;
+end;
+
+procedure dobank;
+begin
+  walkto('VEBank');
+  minimap.SetCompassAngle(270, 2);
+  Wait(randomrange(500, 1500));
+  depositclay;
+  rsclient.image.clear;
+end;
+
+function BucketFull: boolean;
+begin
+  if inventory.FindItem('Bucket') then
+  begin
+      writeln('bucket status: empty bucket');
+      result:= false;
+  end else
+
+  if inventory.finditem('Bucket of water') then
+  begin
+    writeln('bucket status: full bucket');
+    result:= true;
+  end else
+
+  {if (inventory.FindItem('Bucket') = false) and (inventory.finditem('Bucket of water') = false) then
+  begin
+    writeln('we don''t have our bucket');
+    terminatescript;
+  end;}
+end;
+
+procedure fillbucket;   //checks for bucket, fills with water if not full.
+var
+  x, y: integer;
+  searchboxskew: tbox;
+  fountaintpa:TPointarray;
+begin
+  searchboxskew:= mainscreen.GetPlayerBox.Expand(50, 50);
+
+  if (inventory.finditem('clay') = false) then
+  begin
+    writeln('we are out of clay. banking.');
+    dobank;
+  end;
+
+  if (bucketfull = false) then
+  begin
+    writeln('bucket is empty, filling');
+    inventory.ClickItem('Bucket');
+
+    if inventory.IsSlotSelected(0) then
+    begin
+      writeln('empty bucket selected; filling');
+
+      if (findcolorstolerance(fountainTPA, 11642500, mainscreen.GetPlayerBox.Expand(50, 50), 8)) then
+      begin
+        mouse.Move(fountaintpa[random(length(fountaintpa))]);
+
+        if (mainscreen.IsUpText('Use Bucket -> Fountain')) then
+        begin
+          writeln('found fountain');
+          mouse.Click(mouse_left);
+
+          if mainscreen.DidRedClick then
+          begin
+            writeln('red click confirmed');
+            wait(randomrange(978, 1468));
+          end;
+
+          if (chat.GetMessage(7) = 'You fill the bucket from the fountain.') or (inventory.FindItem('Bucket of water')) then
+          begin
+            writeln('filled bucket');
+            wait(randomrange(200, 600));
+          end else
+
+          if not inventory.FindItem('Bucket of water') then
+          begin
+            writeln('something didn''t work.');
+            terminatescript;
+          end;
+        end;
+      end;
+    end;
+  end else
+
+  begin
+    writeln('bucket is full');
+    walkto('Fountain');
+  end;
+end;
+
+procedure softenclay;
+begin
+  softclaycount:= inventory.countitem('Soft clay');
+
+  if (inventory.FindItem('Clay') = true) and (bucketfull = true) then
+  begin
+    writeln('found clay & Bucket of water.');
+    inventory.ClickItem('Bucket of water');
+    wait(randomrange(112, 243));
+
+    if inventory.IsSlotSelected(0) then
+    begin
+      writeln('selected bucket');
+      inventory.ClickItem('Clay');
+      wait(randomrange(1243, 3650));
+
+      if (chat.GetMessage(7) = 'You now have some soft workable clay.') then
+      begin
+        writeln('clay softened!');
+        totalclaysoftened:= totalclaysoftened + 1;
+        writeln(totalclaysoftened);
+      end;
+    end;
+  end else
+
+  begin
+    if (inventory.FindItem('Clay') = false) then
+    begin
+      writeln('no clay in inventory');
+      dobank;
+      exit;
+    end else
+
+    begin
+      if (inventory.FindItem('Bucket')) then
+      begin
+        writeln('bucket is empty');
+      end;
+    end;
+  end;
+end;
+
+procedure setupp;
+begin
+  srl.Setup;
+  walkit.Setup('world');
+  //options.SetZoomLevel(randomrange(45, 62));
+  mainscreen.SetHighestPitch;
+
+  clayy.item:= 'Clay';
+  clayy.noted:= false;
+  clayy.quantity:= 1000;
+
+  softclay.item:= 'Soft clay';
+  softclay.Noted:= false;
+  softclay.Quantity:= 1000;
+  if (inventory.FindItem('Clay')) and (inventory.finditem('Bucket') or inventory.finditem('Bucket of water')) then
+  begin
+    writeln('clay & bucket found; walking to fountain.');
+    walkto('Fountain');
+  end;
+end;
+
+begin
+  setupp;
+  repeat
+    rsclient.Image.DrawBox(mainscreen.GetPlayerBox.Expand(50, 50), clred);
+    writeln(chat.getmessage(7));
+    fillbucket;
+    softenclay;
+    cleardebug;
+    writeln('total softened clay:' + inttostr(totalclaysoftened));
+  until(not(rsclient.IsLoggedIn));
+end.                                                                -

@@ -1,0 +1,262 @@
+{in progress smithing script using catalyst to increase bar production.
+worked out kinks in main process with runite, need to mithril thru steel
+
+    TODO:
+      - add rest of bars
+      - add failsafes for banking
+}
+
+program edgeville_catalyst_smelter; //smelts bars with smithing catalyst
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+const
+  whatbar = 'Runite';
+  cleanscreen = true; //does not run the script, just cleans the screen and terminates.
+
+
+
+var
+  oreDTM, coalDTM, barDTM: integer;
+  walkit: TRSWalker;
+  furnaceLoc, bankLoc: Tpoint;
+  Oree, CoalOre, catalyst: TRSBankWithdrawItem;
+  barr: trsbankdeposititem;
+  FurnaceCol, BankCol, barcol: TCTS2Color;
+
+
+
+procedure setupp;
+begin
+  srl.setup;
+  options.GetZoomLevel;
+  walkit.Setup('world');
+
+  furnaceloc:= [4245, 2451]; //walker coords
+  bankloc:= [4193, 2471];    //walker coords
+
+  furnacecol:= CTS2(4151162, 4, 0.11, 0.30);
+  bankcol:= CTS2(8166828, 2, 0.26, 1.61);
+  barcol:= CTS2(6643273, 14, 0.08, 0.10);
+  case whatbar of
+
+    'Runite':
+    begin
+      oree.Item:= 'Runite ore';
+      oree.Noted:= false;
+      oree.Quantity:= 4;
+
+      coalore.Item:= 'Coal';
+      coalore.Noted:= false;
+      coalore.Quantity:= 16;
+
+      catalyst.item:= 'Smithing catalyst';
+      catalyst.Noted:= false;
+      catalyst.Quantity:= oree.Quantity;
+
+      barr.Item:= 'Runite bar';
+      barr.Quantity:= -1;
+    end;
+
+    'Adamant':
+    begin
+      //adamant info
+
+    end;
+
+
+  end;
+end;
+
+function walktobank: boolean;
+begin
+  result:= walkit.WalkBlind(bankloc, 2);
+end;
+
+function walktofurnace: boolean;
+begin
+  result:= walkit.WalkBlind(furnaceloc, 2);
+end;
+
+function hasitems: boolean;
+begin
+  result:= inventory.FindItems([oree.Item, coalore.Item, catalyst.Item]);
+end;
+
+function clickbank: boolean;
+var
+  TPA: TPointArray;
+begin
+  if srl.findcolors(TPA, bankcol, mainscreen.Bounds) then
+  begin
+    mouse.move(TPA.bounds);
+    if mainscreen.IsUpText('Bank Bank booth') then
+      mouse.click(mouse_left);
+
+    if mainscreen.DidRedClick then
+    begin
+      while not bank.IsOpen do
+        wait(31);
+    end;
+
+    result:= bank.IsOpen;
+  end;
+end;
+
+function bankem: boolean;
+var
+  runitecount, coalcount, catacount, totalcount: integer;
+begin
+
+  if not walktobank then
+    walktobank;
+
+  if (inventory.FindItem(oree.Item) = false) and (walkit.GetMyPos.DistanceTo(bankloc) < 5) then
+  begin
+
+    if clickbank then
+    begin
+      bank.DepositAll;
+
+      if not inventory.FindItem(catalyst.Item) then
+        bank.WithdrawItem(catalyst, true);
+
+      if not inventory.FindItem(oree.Item) then
+        bank.WithdrawItem(oree, true);
+
+      if not inventory.FindItem(coalore.Item) then
+        bank.WithdrawItem(coalore, true);
+
+    end;
+
+    runitecount:= inventory.CountItem(oree.Item);
+    coalcount:= inventory.CountItem(coalore.Item);
+    catacount:= inventory.CountItem(catalyst.Item);
+    totalcount:= runitecount + coalcount + catacount;
+    writeln('Rune ore count: ' + tostr(runitecount));
+    writeln('Coal count: ' + tostr(coalcount));
+    writeln('Catalyst count: ' + tostr(catacount));
+    writeln('Total items in inventory: ' + tostr(totalcount));
+
+    if hasitems then
+    begin
+      writeln('Banking completed!');
+      bank.close(false);
+      result:= walkit.WalkBlind(furnaceloc);
+    end else
+    begin
+      writeln('Something went wrong during banking');
+      result:= false;
+    end;
+  end;
+end;
+
+function Clickfurnace: boolean;
+var
+  TPA: TPointArray;
+begin
+  if srl.FindColors(TPA, furnacecol, mainscreen.Bounds) then
+  begin
+    rsclient.image.DrawTPA(TPA, clcream);
+    mouse.move(tpa.Bounds);
+    if mainscreen.GetUpText.EndsWith('Furnace') or mainscreen.IsUpText('Smelt') then
+    begin
+      mouse.click(tpa.Bounds, mouse_left);
+      result:= mainscreen.DidRedClick;
+    end;
+  end;
+end;
+
+procedure drawshit;
+begin
+  rsclient.image.clear;
+  writeln('drawing furnace tile');
+  rsclient.Image.Drawrect(walkit.GetTileMS(furnaceloc), clAqua);
+  writeln('drawing bank tile');
+  rsclient.Image.Drawrect(walkit.GetTileMS(bankloc), clAqua);
+  rsclient.image.DrawText(tostr(walkit.GetMyPos), [10, 10], clorange);
+  wait(100);
+
+end;
+
+procedure smeltem;
+var
+  bars: integer;
+  smeltTPA: TPointarray;
+  timerr: tstopwatch;
+begin
+  if hasitems then
+  begin
+    bars:= inventory.countitem('Runite bar');
+    //inventory.ClickItem(oree.Item);
+    if clickfurnace then
+    begin
+      {while (inventory.CountItem('Runite bar') = bars) and (make.isopen = false) and (timerr.ElapsedTime > 5000) do
+        wait(131);  }
+      wait(randomrange(800, 1500));
+
+      if make.IsOpen then
+      begin
+        make.Select(barr.item, -1);
+        wait(randomrange(3500, 5000));
+      end;
+    end;
+  end else
+  begin
+    writeln('Out of supplies, banking');
+    bankem;
+  end;
+end;
+
+
+
+
+
+{procedure smeltbars;
+begin
+  if XPUp then
+  begin
+    inventory.ClickItem(oree.Item);
+    ClickFurnace;
+
+var
+  oree: TRSBankWithdrawItem;
+
+case ore of
+  'adamant': begin
+               oree.Item:= 'Adamant ore'
+               oree.quantity:= x;
+               oree.noted:= false;
+
+               coall.item:= 'Coal';
+               coall.quantity:= x;
+               Coall.noted:= false;
+
+               catalyst.Item:= 'Smithing Catalyst';
+               catalyst.Quantity:= oree.quantity;
+               catalyst.Noted:= false;
+             end;
+             repeat for all ores
+  }
+
+//set withdraw quantity to 4
+// click smithing catalyst once, rune ore once, and coal 4 times.
+//walk to furnace
+//click rune ore, click furnace, wait
+//repeat until no more ore
+
+begin
+  setupp;
+  if not cleanscreen then
+  begin
+    repeat
+      drawshit;
+      if hasitems then
+      begin
+        smeltem;
+      end else
+        bankem;
+    until not rsclient.IsLoggedIn
+  end else
+  rsclient.image.Clear;
+end.

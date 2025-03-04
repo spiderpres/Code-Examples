@@ -1,0 +1,300 @@
+program enchanter;
+{$define srl_use_remoteinput}
+{$i srl/osr.simba}
+
+var
+  spelldtm, spellx, spelly,
+  maxruntimems, itemsleft,
+  amuletsenchanted: integer;
+
+  casts: int32;
+  totaltimer: tstopwatch;
+  bankcolor: TCTS2Color;
+  spellboxb, spellboxs: tbox;
+
+const
+  ToAlch = 'Topaz amulet';
+  Enchanted = 'Burning amulet (5)';
+  maxruntime = 120;   //in minutes
+  castexp = 59;
+  whatspell = 3;      //corresponds to lvl-x enchant spell
+
+procedure printtimerunning(extra: string);
+var
+  experience: int32;
+begin
+  experience:= casts * castexp;
+  rsclient.image.clear;
+  rsclient.image.DrawText(srl.TimeRunning, chat.Center, clnavy);
+  rsclient.image.DrawText(extra, chat.Center.Offset(0, 20), clnavy);
+  rsclient.image.DrawText(tostr(experience), chat.Center.Offset(0, 40), clnavy);
+end;
+
+procedure lineprinter(stringarray: TStringArray; topleft: tpoint); //prints tstringarray line by line
+var
+  str: string;
+  i: int32;
+begin
+  for i:=0 to high(stringarray) do
+  begin
+    rsclient.Image.DrawText(stringarray[i], topleft, clwhite);
+    topleft.y:= (topleft.y + 20)
+  end else
+    exit;
+end;
+
+function HasItems: boolean;
+begin
+  result:= inventory.FindItems(['Cosmic rune', toalch]);
+end;
+
+function ClickChest: boolean;
+var
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+  timerr: tstopwatch;
+begin
+  timerr.start;
+  if srl.FindColors(TPA, bankcolor, mainscreen.Bounds) then
+  begin
+    ATPA:= tpa.Cluster(2);
+    rsclient.Image.DrawTPA(atpa.Biggest, clgreen);
+    mouse.move(ATPA.Biggest.Bounds);
+
+    if mainscreen.IsUpText('Bank') or mainscreen.IsUpText('Cast') then
+    begin
+      mouse.click(mouse_left);
+      mouse.click(mouse_left);
+
+      if mainscreen.DidRedClick then
+      begin
+        wait(randomrange(500, 1000));
+        result:= bank.IsOpen;
+      end;
+
+    end else
+      mouse.move(tpa.Bounds, true);
+
+  end;
+end;
+
+function bankerr:boolean;
+begin
+  if not bank.IsOpen then
+    if clickchest then
+      writeln('Bank is open!');
+
+  if bank.IsOpen then
+  begin
+
+    if inventory.FindItem(enchanted) then
+    begin
+      writeln('depositing burning amulets');
+      inventory.ClickItem(enchanted);
+      waitex(800, 10);
+    end;
+
+    if bank.FindItem(toalch) then
+    begin
+      waitex(700, 10);
+      if bank.WithdrawItem([toalch, 27, false], false) then
+      begin
+        waitex(600, 5);
+        writeln('banking done!');
+        bank.close;
+      end;
+    end else
+    begin
+      writeln('couldn''t find items in bank, logging out');
+      //logout.ClickLogout;
+    end;
+      result:= inventory.FindItem(toalch);
+  end;
+end;
+
+
+procedure antibanner;
+begin
+
+  case random(1000) of
+
+    0..249:
+    begin
+      writeln('no antiban');
+    end;
+
+
+    250..300:
+    begin
+      writeln('random pause');
+      wait(randomrange(3000, 8000));
+    end;
+
+    301..749:
+    begin
+      writeln('super short pause');
+      wait(randomrange(500, 1000));
+    end;
+
+    750:
+    begin
+      writeln('long afk');
+      mouse.move(0, random(mainscreen.Bounds.Height));
+      wait(randomrange(15000, 45000));
+    end;
+
+    751..1000:
+    begin
+      writeln('no antiban');
+    end;
+
+  end;
+end;
+
+function findspell: boolean;
+begin
+  if finddtm(spelldtm, spellx, spelly, inventory.Bounds) then
+  begin
+    spellboxb:= box([spellx, spelly], 15, 15);
+    spellboxs:= box([spellx, spelly], 5, 5);
+    rsclient.image.DrawBox(spellboxs, clwhite);
+    mouse.Move(spellboxs);
+    waitex(120, 50);
+    result:= mainscreen.IsUpText('Cast Lvl');
+  end else
+  begin
+    writeln('couldn''t find spell, moving mouse');
+    mouse.move(inventory.Bounds, true);
+  end;
+
+end;
+
+procedure alch;
+var
+  timerr: tstopwatch;
+  items, runes, spellattempts: integer;
+begin
+  if hasitems then
+  begin
+    repeat
+
+      if not (gametabs.GetCurrentTab = ersgametab.MAGIC) then gametabs.open(ersgametab.MAGIC);
+      if findspell then
+      begin
+        spellattempts:= 0;
+        mouse.click(mouse_left);
+        waitex(200, 50);
+        timerr.Start;
+
+        if inventory.IsOpen then
+        begin
+          rsclient.image.clear;
+          amuletsenchanted:= inventory.CountItem(enchanted);
+          items:= inventory.CountItem(ToAlch);
+          runes:= inventory.CountItemStack('Cosmic rune');
+          itemsleft:= inventory.CountItemStack(toalch);
+          writeln(items);
+          writeln(runes);
+          writeln(itemsleft);
+          printtimerunning(tostr(casts));
+
+          if not inventory.FindItem(toalch) then
+          begin
+            if bankerr then
+            begin
+              writeln('Banking complete, resetting procedure');
+              exit;
+            end;
+
+          end;
+
+          if inventory.FindItem(toalch) then
+          begin
+            inventory.ClickItem(toalch);
+            wait(randomrange(120, 200));
+            mouse.move(spellboxb);
+            antibanner;
+            waitex(250, 50);
+          end
+
+
+
+          while inventory.Isopen and (timerr.ElapsedTime < 5000) do
+            wait(randomrange(50, 200));
+
+          casts:= casts + 1;
+
+
+        end;
+      end else
+      begin
+        spellattempts:= spellattempts + 1;
+        writeln('could not find spell. attempt:' + tostr(spellattempts));
+        if spellattempts >= 3 then
+          terminatescript('Could not cast spell');
+      end;
+
+    until({(items = 0) or} (runes = 0));
+  end else
+  begin
+    writeln('out of runes. logging out.');
+    logout.ClickLogout;
+  end;
+end;
+
+procedure setupp;
+begin
+  srl.setup;
+
+  casts:= 0;
+  maxruntimems:= maxruntime * 60000;
+
+  amuletsenchanted:= 0;
+
+
+  case whatspell of
+    //1: spelldtm:=
+    2: spelldtm:= DTMFromString('mlwAAAHicY2dgYEhnYmBIBeIkIM4C4lwgzoSKcTIyMPACMTsQswAxF5QPYrOUsjD8+saDFeMDjHgwFAAAYJkPmA==');
+    3: spelldtm:= DTMFromString('mwQAAAHic42RgYPBlYmDwBmJPKAbxA4A4CIr9gNiSkYHBBoitgNgMiI2B2ASILYDYGojtgPgcMwPDr288eDExgJEIDAcAex4VlQ==');
+    4: spelldtm:= DTMFromString('m1gAAAHic42JgYEhnYmDIAuI0IE4B4iQoBvEzgTgXigMZGRh8gNgbiH2B2B+Ig4A4DIqDoGLPnn9j+PWNhyAmFjASiREAAAiBG/0=');
+    5: spelldtm:= DTMFromString('mAAEAAHiclckxDoAgFATRxcKKE6soCngXD2drYeWQ/IJSNnnNrJcUB6ngwIaA2QRr9cs4ER0dk1mwYkdCMcnaNd56H/9b71yndh8BhCOr');
+    //6: spelldtm:=
+    7: spelldtm:= DTMFromString('mlgdsagAAAH');
+  else
+    Writeln('invalid input for whatspell');
+  end;
+
+
+
+
+  //lvl2spellDTM := DTMFromString('mlwAAAHicY2dgYEhnYmBIBeIkIM4C4lwgzoSKcTIyMPACMTsQswAxF5QPYrOUsjD8+saDFeMDjHgwFAAAYJkPmA==');
+  //notednecklaceDTM := DTMFromString('mAAEAAHic42FgYHBiYmBwAGJ7KLYBYluoGEjOBYjdgdgLioMZGRh8gNgfiIOAOBSII4A4EkqHQsX9gNgbiDfNV2CoLRBjqMwRYJjQIMZw77g6w/WDygxzeqQZemrFwBgkv3iSNENHlRgDqYCRRIwMAI2KFjc=');
+  //lvl3spellDTM := DTMFromString('mwQAAAHic42RgYPBlYmDwBmJPKAbxA4A4CIr9gNiSkYHBBoitgNgMiI2B2ASILYDYGojtgPgcMwPDr288eDExgJEIDAcAex4VlQ==');
+
+  bankcolor:= CTS2(1055335, 3, 0.27, 1.31);
+
+
+
+end;
+
+procedure freedtms;
+begin
+  freedtm(spelldtm);
+  //freedtm(notednecklacedtm);
+end;
+
+begin
+  setupp;
+  totaltimer.Start;
+  addonterminate('freedtms');
+  repeat
+    alch;
+  until(not(rsclient.isloggedin) or(totaltimer.ElapsedTime >= maxruntimems));
+
+  if not rsclient.IsLoggedIn then
+  begin
+    writeln('not logged in, terminating script');
+    //freedtms;
+    terminatescript;
+  end;
+end.

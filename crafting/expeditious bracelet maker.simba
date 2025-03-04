@@ -1,0 +1,58 @@
+program opalbraceletenchanter;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+var
+  enchantspell: integer;
+
+procedure setupp;
+begin
+  srl.Setup;
+  enchantspell:= DTMFromString('mAAEAAHic42FgYNjGxMCwE4p3A/EOIN4KxJuBeAOU3gLE24F4FxDfAuq5BsQ3GCDsO0B8H0qD+NeB+AqUBokpcB1n+PWNh6Gv9zOYZmKsxkrD5EkFjCRiZAAAmj0lXA==');
+
+end;
+
+function openmagictab: boolean;
+begin
+  mouse.move(gametabs.GetTabBox(ersgametab.MAGIC));
+
+  if mainscreen.IsUpText('Magic') then
+  begin
+    mouse.Click(mouse_left);
+  end;
+
+  result:= (gametabs.GetCurrentTab = ersgametab.MAGIC);
+end;
+
+procedure enchantem;
+var
+  x, y, unenchanted: integer;
+begin
+  unenchanted:= inventory.CountItem('Opal bracelet');
+  rsclient.Image.DrawBox(gametabs.GetTabBox(ersgametab.MAGIC), clred);
+  mouse.move(gametabs.GetTabBox(ersgametab.MAGIC));
+  //if ma
+  if finddtm(enchantspell, x, y, inventory.Bounds) then
+  begin
+    mouse.move(gametabs.GetTabBox(ersgametab.MAGIC));
+    if mainscreen.IsUpText('Cast Lvl-1') then
+    begin
+      //mouse.click(mouse_left);
+      while(not(gametabs.GetCurrentTab = ersgametab.INVENTORY)) do
+        wait(randomrange(31, 100));
+
+    end;
+  end;
+end;
+
+procedure bankem;
+begin
+end;
+
+
+begin
+  setupp;
+  writeln(openmagictab);
+
+  freedtm(enchantspell);
+end.

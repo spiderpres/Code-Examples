@@ -1,0 +1,130 @@
+program redspiderkiller; //start at red spiders with food and at least one space empty
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+{$i srl-p/osr.simba}
+
+const
+  drawdebug = true;
+  WhatFood = 'Swordfish';
+
+var
+  eggcol, spidercol: TCTS2Color;
+
+procedure println(line: string);
+begin
+  writeln(line);
+  lineprinter([line, tostr(srl.TimeRunning)], [3, 276]);
+end;
+
+function findeggs: boolean;  //convert to bone checking for item grabbing?
+var
+  eggtpa: TPointArray;
+  eggatpa: t2dpointarray;
+  eggbox: tboxarray;
+  eggcount: integer;
+  timerr: tstopwatch;
+begin
+  eggcount:= inventory.countitem('Red spiders'' eggs');
+  if srl.FindColors(eggtpa, eggcol, mainscreen.Bounds) then
+  begin
+    timerr.Start;
+    println('found possible eggs');
+    eggatpa:= eggtpa.cluster(3);
+    eggbox:= eggatpa.ToTBA;
+    if drawdebug then rsclient.image.DrawBoxes(eggbox, clwhite);
+    mouse.move(eggbox[random(length(eggbox))]);
+    if mainscreen.IsUpText('Take') then
+      mouse.click(mouse_left);
+
+    if mainscreen.DidRedClick then
+      println('grabbing eggs');
+
+    while (inventory.CountItem('Red spiders'' eggs') = eggcount) and (timerr.ElapsedTime < 5000) do
+      wait(150);
+
+    result:= (inventory.CountItem('Red spiders'' eggs') > eggcount);
+  end;
+  timerr.Reset;
+end;
+
+//need antiban
+
+procedure attackspider;
+var
+  spidertpa: tpointarray;
+  spideratpa: t2dpointarray;
+  spiderbox: tboxarray;
+  timerr: tstopwatch;
+  checks: integer;
+begin
+  if srl.FindColors(spidertpa, spidercol, mainscreen.Bounds) then
+  begin
+    timerr.Start;
+    println('found possible spider');
+    spideratpa:= spidertpa.cluster(5);
+    spideratpa.SortByMiddle(mainscreen.Bounds.Middle);
+    spiderbox:= spideratpa.ToTBA;
+    if drawdebug then rsclient.image.DrawBoxes(spiderbox, clwhite);
+    mouse.move(spiderbox[low(spiderbox)]);
+    if mainscreen.IsUpText('Attack') then
+      mouse.click(mouse_left);
+
+    if mainscreen.DidRedClick then
+    begin
+      rsclient.Image.Clear;
+      wait(150);
+      while minimap.IsPlayerMoving(200) do
+      begin
+        if (timerr.ElapsedTime > 5000) then
+          break;
+        println('walking to spider');
+        wait(251);
+      end;
+
+      while (length(mainscreen.FindHPBars) < 2) do
+      begin
+        if (timerr.ElapsedTime > 15000) then
+          break;
+        println('waiting for hp bars');
+        wait(150);
+      end;
+
+      checks:= 0; //reset checks before loop
+      while (length(mainscreen.FindHPBars) >= 1) and (checks < 10) do
+      begin
+        if (length(mainscreen.FindHPBars) <= 1) then
+        begin
+          checks:= checks + 1; //iterates number of checks
+          println('Check #: ' + tostr(checks));
+        end else
+          checks:= 0;
+        println('we are in combat');
+        if (minimap.GetHPpercent < 50) then
+          while (minimap.GetHPpercent < 85) do
+            if inventory.ClickItem(whatfood) then
+            begin
+              println('Ate food. health is at: ' + tostr(minimap.GetHPLevel));
+              wait(250);
+            end;
+        wait(150);
+      end;
+
+    end else
+    begin
+      println('Didn''t click spider. resetting procedure.');
+      exit;
+    end;
+  end;
+  {if findeggs then
+    rsclient.image.clear; }
+end;
+
+begin
+  eggcol:= CTS2(1846693, 7, 0.06, 0.31);
+  spidercol:= CTS2(4944538, 10, 0.04, 0.38);// basilisk
+  addonterminate('wipe');
+  repeat
+    attackspider;
+    println(srl.TimeRunning);
+  until not rsclient.IsLoggedIn;
+end.

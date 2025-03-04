@@ -1,0 +1,274 @@
+program hidegatherer;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+var
+  rsw: trswalker;
+
+procedure setup;
+begin
+  if not rsclient.IsLoggedIn then
+    exit;
+
+  //declareplayer;
+  begin
+    rsw.Setup('world');
+    options.SetZoomLevel(30);
+    minimap.SetCompassAngle(270);
+  end;
+end;
+
+procedure walktogate;
+var
+  x, y: integer;
+begin
+  {if not inventory.isfull then
+  begin
+    writeln('still have room in inventory');
+    exit;
+  end;}
+
+  minimap.SetCompassAngle(0, 2);
+  mainscreen.SetHighestPitch;
+  writeln('walking to gate');
+  rsw.WalkBlind([4831, 3377], 1);
+end;
+
+procedure checkgate; //code for opening gate if it's closed
+var
+  searchbox: tbox;
+  x, y: integer;
+begin
+  searchbox:= box(162, 189, 198, 226);
+  rsclient.image.clear;
+  rsclient.image.DrawBox(searchbox, clblue);
+  if findcolorspiraltolerance(x, y, 406084, 162, 189, 198, 226, 7) then
+  begin
+    writeln('found gate, mousing over');
+    mouse.move(x, y);
+    if mainscreen.isuptext('Open Gate') then
+    begin
+      writeln('gate is closed');
+      mouse.click(mouse_left);
+      if mainscreen.DidRedClick then
+      begin
+        writeln('opening gate');
+        wait(randomrange(3000, 3500));
+      end;
+    end else
+    begin
+      writeln('gate seems to be open');
+    end;
+  end;
+end;
+
+procedure walktocastlestairs;
+begin
+  rsw.WalkBlind([4637, 3539], 1);
+end;
+
+procedure goupstairs;
+var
+  x, y: integer;
+  searchbox, searchboxx: tbox;
+begin
+  if (minimap.GetCompassAngle(true) <> 0 + randomrange(3, 4)) then
+  begin
+    minimap.SetCompassAngle(0, 3);
+  end;
+
+  searchbox:= box(157, 72, 247, 149);
+  searchboxx:= box(157, 72, 247, 149);
+  rsclient.image.clear;
+  rsclient.image.DrawBox(searchbox, clblue);
+  if FindColorspiraltolerance(x, y, 1069425, 157, 72, 247, 149, 2) then
+  begin
+    mouse.click(x, y, mouse_right);
+    chooseoption.Select('Climb-up', mouse_left);
+    wait(randomrange(2500, 2500));
+    if FindColorspiraltolerance(x, y, 1069425, 157, 72, 247, 149, 2) then
+    begin
+      rsclient.image.clear;
+      rsclient.image.DrawBox(searchboxx, clblue);
+      mouse.click(x, y, mouse_right);
+      chooseoption.Select('Climb-up', mouse_left);
+    end;
+  end;
+end;
+
+function walktobanker:boolean;
+var
+  tpa: tpointarray;
+begin
+  //walk to banker and interact, return true once bankscreen is up
+  minimap.SetCompassAngle(0, 3);
+  mouse.click(randomrange(651, 653), randomrange(122, 124), mouse_left);
+  repeat
+    wait(randomrange(20, 500));
+  until(minimap.IsPlayerMoving = false);
+  if srl.findcolors(tpa, CTS1(14803429, 4), box(228, 60, 290, 113)) then
+  begin
+    mouse.move(tpa[random(length(TPA))]);
+    if mainscreen.IsUpText('Talk-to Banker tutor', 200) then
+    begin
+      mouse.click(mouse_right);
+      chooseoption.select('Bank Banker tutor', mouse_left, false, false);
+      wait(2000);
+      if bank.IsOpen(500, 5) = true then
+      begin
+        result:= true;
+      end else
+      begin
+        writeln('did not detect bankscreen; pausing');
+        wait(50000);
+      end;
+    end;
+  end;
+end;
+
+procedure godownstairs;
+var
+  searchbox: tbox;
+  x, y: integer;
+begin
+  mouse.click(635, 47, mouse_left);
+  repeat
+    wait(20);
+  until(minimap.IsPlayerMoving = false);
+  searchbox:= box(198, 140, 250, 188);
+  rsclient.image.clear;
+  rsclient.image.DrawBox(searchbox, clblue);
+  if FindColorspiraltolerance(x, y, 1069425, 198, 140, 250, 188, 2) then
+  begin
+    mouse.click(x, y, mouse_right);
+    chooseoption.Select('Climb-down', mouse_left);
+    wait(randomrange(2500, 2500));
+    if FindColorspiraltolerance(x, y, 1069425, 198, 140, 250, 188, 2) then
+    begin
+      rsclient.image.clear;
+      rsclient.image.DrawBox(searchbox, clblue);
+      mouse.click(x, y, mouse_right);
+      chooseoption.Select('Climb-down', mouse_left);
+    end;
+  end;
+end;
+
+procedure walktocows;
+begin
+  rsw.Walkblind([4813, 3383], 5);
+end;
+
+procedure checkgatetwo;
+var
+  searchbox: tbox;
+  x, y: integer;
+begin
+  searchbox:= box(162, 189, 198, 226);
+  rsclient.image.clear;
+  rsclient.image.DrawBox(searchbox, clblue);
+  if findcolorspiraltolerance(x, y, 406084, 162, 189, 198, 226, 7) then
+  begin
+    writeln('found gate, mousing over');
+    mouse.move(x, y);
+    if mainscreen.isuptext('Open Gate') then
+    begin
+      writeln('gate is closed');
+      mouse.click(mouse_left);
+      if mainscreen.DidRedClick then
+      begin
+        writeln('opening gate');
+        wait(randomrange(3000, 3500));
+      end;
+    end else
+    begin
+      writeln('gate seems to be open');
+    end;
+  end;
+end;
+
+function bankhides:boolean;
+begin
+  //assemble code for walking to bank, banking, walking back
+  {walktogate;
+  checkgate;
+  walktocastlestairs;
+  goupstairs; }
+  if walktobanker = true then
+  begin
+    bank.DepositAll;
+    if inventory.isfull = false then
+    begin
+      writeln('depositing complete!');
+      bank.Close(false);
+      godownstairs;
+      wait(500);
+      walktocows;
+      result:= true;
+    end;
+  end;
+end;
+
+procedure grabhides;
+var
+  hide, TPA: TPointArray;
+  ATPA: T2DPointArray;
+  curBones: integer;
+  timar: tstopwatch;
+begin
+  if inventory.IsFull then
+  begin
+    Writeln('inventory is full, burying bones');
+    bankhides;
+  end;
+
+  if srl.findcolors(TPA, CTS2(12303300, 4, 0.31, 0.15), mainscreen.bounds) then
+  begin
+    timar.Start;
+    writeln('looking for hides...');
+    ATPA := TPA.Cluster(5);
+    writeln('clustering TPAs into ATPA');
+    ATPA.FilterSize(10, 300);
+    writeln('filtering ATPAs');
+    ATPA.SortByIndex(Mainscreen.Center);
+    writeln('finding matching TPAs');
+    rsclient.image.clear;
+    rsclient.image.drawatpa(atpa);
+    for hide in ATPA do
+    begin
+      curbones:= inventory.CountItem('Bones');
+      writeln('hides detected');
+      mouse.move(hide[random(length(hide))]);
+      if mainscreen.IsUpText('Take', 50) then
+      begin
+        mouse.click(mouse_right);
+        chooseoption.Select('Take Cowhide', mouse_left);
+        writeln('grabbing bones');
+        mouse.move(hide[random(length(hide))]);
+        //writeln('grabbing hide');
+        //mouse.click(mouse_right);
+        //chooseoption.select('Take Cowhide', mouse_left);
+
+        repeat
+          writeln('still grabbing ' + inttostr(timar.ElapsedTime));
+          wait(randomrange(100, 176));
+        until((inventory.CountItem('Bones') > curbones) or (timar.ElapsedTime > randomrange(3000, 5000)));
+        exit;
+      end;
+    end;
+  end;
+end;
+
+begin
+{
+  -grabs hides at lumby cows
+  -once inventory is full walks to bank
+  -banks, then walks back.
+
+  theoretical $300k-400k profit per day
+}
+  setup;
+  repeat
+    grabhides;
+  until(rsclient.IsLoggedIn = false);
+
+end.

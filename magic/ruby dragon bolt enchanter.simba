@@ -1,0 +1,96 @@
+program rubydragonboltenchanter;
+{$DEFINE SRL_USE_REMOTEINPUT}
+{$i srl/osr.simba}
+
+//enchants ruby dragon bolts, sells on ge, buys more, repeat.
+//supports buying runes, bolts, selling on ge
+//have fire staff equipped
+
+var
+  boltsenchanted: integer;
+  //gefinder: TRSObjectFinder;
+
+procedure setupp;
+begin
+  srl.Setup;
+  //gefinder.Colors += CTS2(6176331, 11, 0.07, 0.51);
+end;
+
+function countbasebolts: integer;
+begin
+  result:= inventory.CountItemStack('Ruby dragon bolts');
+end;
+
+function countenchantedbolts: integer;
+begin
+  result:= inventory.CountItemStack('Ruby dragon bolts(e)');
+end;
+
+function itemcheck: boolean;
+begin
+  if inventory.finditem('Blood rune') and inventory.FindItem('Cosmic rune') and inventory.FindItem('Ruby dragon bolts') then
+  begin
+    result:= true;
+  end;
+end;
+{
+function openGE: boolean;
+var
+  geatpa: t2dpointarray;
+  i: int32;
+  xy: tpoint;
+begin
+  geatpa:= grandexchange.FindNPC(gefinder);
+  if inventory.FindItem('Ruby crossbow bolt') then
+  begin
+    for i := 0 to low(geatpa) do
+    begin
+      mouse.move(geatpa[random(length(geatpa))]);
+      if mainscreen.IsUpText('Exchange') then
+      begin
+        mouse.click(mouse_left);
+        if grandexchange.IsOpen then
+        begin
+          result:= true;
+        end;
+      end;
+    end;
+  end;
+end; }
+
+function enchantbolts: boolean;
+var
+  startbasebolts, endbasebolts: integer;
+  timerr: tstopwatch;
+begin
+  startbasebolts:= countbasebolts;
+  endbasebolts:= startbasebolts - 100;
+
+  if itemcheck then
+  begin
+    timerr.Start;
+    magic.CastSpell(ersspell.ENCHANT_CROSSBOW_BOLT);
+    wait(randomrange(50, 200));
+    keyboard.PressKey(vk_space);
+
+    while (inventory.CountItemStack('Ruby dragon bolts') > endbasebolts) and (timerr.ElapsedTime < 15000) do
+      wait(31);
+
+
+    if inventory.countitemstack('Ruby dragon bolts') = endbasebolts then
+    begin
+      result:= true;
+    end;
+
+  end;
+end;
+
+begin
+  setupp;
+  repeat
+    if enchantbolts then
+      boltsenchanted:= boltsenchanted + 100;
+
+    writeln('bolts enchanted: ' + tostr(boltsenchanted));
+  until(not(rsclient.IsLoggedIn));
+end.
