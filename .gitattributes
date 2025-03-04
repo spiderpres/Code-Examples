@@ -1,1 +1,4 @@
-*.simba linguist-language=delphi
+# Auto detect text files and perform LF normalization
+* text=auto
+#set simba files to pascal
+*.simba linguist-language=pascal
