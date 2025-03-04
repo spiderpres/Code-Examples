@@ -1,0 +1,574 @@
+program VinylRunespan;
+{$DEFINE SMART8} // Comment this, and un-comment the SMART one fore regular SMART.
+//{$DEFINE SMART}// Comment both to not use smart.
+{$i SRL/SRL.simba}
+
+{$IFDEF SMART}
+  {$i SRL/SRL/misc/smartgraphics.Simba}
+{$ENDIF}
+
+
+const
+  DoBreak            = true;       //True = yes, false = no.
+  MinBreak           = 30;         //Minimum break time. 1 = 1 minute
+  MaxBreak           = 120;        //Maximum break time. 1 = 1 minute
+  BreakForMin        = 5;
+  BreakForMax        = 20;
+  Member             = True;       //Are you a Member? True = yes, False = no.
+  Version            = '1.51';    // Don't Touch.
+
+type TRune = record
+  DTM: integer;
+  name: string;
+end;
+
+type TRuneArray = array of TRune;
+
+var
+  StartingExperience, Breaktime, Breaks, EssDTM1: integer;
+  Air, Water, Fire, Earth, Blood, Death: TRune;
+  Runes: TRuneArray;
+
+
+procedure DeclarePlayers;
+begin
+  HowManyPlayers := 1;
+  NumberOfPlayers(HowManyPlayers);
+  CurrentPlayer := 0;
+  with Players[0] do
+  begin
+    if not IsXPBarOpen then
+    begin
+      WriteLn('Xp bar not open. Opening.');
+      ToggleXPBar(true);
+    end;
+    Name := '';             // Your Username.
+    Pass := '';             // Your Password.
+    BoxRewards  := ['XP','xp','lamp'];
+    Active      := True;
+    Strings[0]  := 'blood';
+                                      {Esslings: air, water, fire, earth.  }
+                                      {Esshound: body, law, astral, chaos. }
+                                      {Esswraith: blood, death, soul.      }
+  end;
+end;
+
+{*******************************************************************************
+procedure ResetBreakTimer;
+Description: Resets the timer.
+*******************************************************************************}
+
+procedure ResetBreakTimer;
+begin
+  BreakTime := GetSystemTime + RandomRange(MinBreak * 60000, MaxBreak * 60000);
+end;
+
+{**************************************************************************
+procedure TakeBreak;
+Description: Logs your character out for a random time.
+**************************************************************************}
+
+procedure TakeBreak;
+var
+  H, M, S, T, BreakFor: Integer;
+begin
+  if (GetSystemTime >= BreakTime) and Players[CurrentPlayer].Booleans[0] then
+  begin
+    Logout;
+    BreakFor := RandomRange(BreakForMin * 60000, BreakForMax * 60000);
+    ConvertTime(BreakFor, H, M, S);
+    Writeln('Break for: ' + IntToStr(M)+ 'm:' + IntToStr(S)+ 's');
+    MarkTime(T);
+    Repeat
+      Wait(RandomRange(1000, 2000));
+    until (BreakFor < TimeFromMark(T));
+    LogInPlayer;
+    ResetBreakTimer; //Important!!
+    Wait(RandomRange(4000, 5000));
+    FindNormalRandoms;
+    Inc(Breaks);
+  end;
+end;
+
+/////////\\\\\\\\\
+
+{*******************************************************************************
+
+All of these mouse movements are credited to bENland100 and flight
+
+And Brad for linking me.
+
+*******************************************************************************}
+
+
+//By Bandland100, modified to shift mouse speeds after every step
+Procedure SuperWindMouse(xs, ys, xe, ye, gravity, wind, minWait, maxWait, maxStep, targetArea: extended);
+Var
+  veloX,veloY,windX,windY,veloMag,dist,randomDist,lastDist,step: extended;
+  lastX,lastY,MSP,W: integer;
+  sqrt2,sqrt3,sqrt5: extended;
+Begin
+  MSP  := MouseSpeed;
+  sqrt2:= sqrt(2);
+  sqrt3:= sqrt(3);
+  sqrt5:= sqrt(5);
+  While hypot(xs - xe, ys - ye) > 1 Do
+  Begin
+    dist:= hypot(xs - xe, ys - ye);
+    wind:= minE(wind, dist);
+    If dist >= targetArea Then
+    Begin
+      windX:= windX / sqrt3 + (random(round(wind) * 2 + 1) - wind) / sqrt5;
+      windY:= windY / sqrt3 + (random(round(wind) * 2 + 1) - wind) / sqrt5;
+    End Else
+    Begin
+      windX:= windX / sqrt2;
+      windY:= windY / sqrt2;
+      If (maxStep < 3) Then
+      Begin
+        maxStep:= random(3) + 3.0;
+      End Else
+      Begin
+        maxStep:= maxStep / sqrt5;
+      End;
+    End;
+    veloX:= veloX + windX;
+    veloY:= veloY + windY;
+    veloX:= veloX + gravity * (xe - xs) / dist;
+    veloY:= veloY + gravity * (ye - ys) / dist;
+    if hypot(veloX, veloY) > maxStep then
+    Begin
+      randomDist:= maxStep / 2.0 + random(round(maxStep) div 2);
+      veloMag:= sqrt(veloX * veloX + veloY * veloY);
+      veloX:= (veloX / veloMag) * randomDist;
+      veloY:= (veloY / veloMag) * randomDist;
+    End;
+    lastX:= Round(xs);
+    lastY:= Round(ys);
+    xs:= xs + veloX;
+    ys:= ys + veloY;
+
+    Case Random(50) Of
+      0..25: W := (MSP + (Random((MSP/4))));
+      26..49: W := (MSP - (RandomRange((MSP/2), MSP-1)));
+    End;
+    If (W < 1) Then
+      W := 1;
+
+    If (lastX <> Round(xs)) Or (lastY <> Round(ys)) Then
+      MoveMouse(Round(xs), Round(ys));
+
+    step:= hypot(xs - lastX, ys - lastY);
+    //W := round((maxWait - minWait) * (step / maxStep) + minWait);
+    wait(W);
+    lastdist:= dist;
+  end;
+
+  If (Round(xe) <> Round(xs)) or (Round(ye) <> Round(ys)) Then
+    MoveMouse(Round(xe), Round(ye));
+
+  MouseSpeed := MSP;
+End;
+
+Procedure HumanMMouse(eX, eY, ranX, ranY: Integer);
+Var
+  randSpeed: extended;
+  X,Y,X2,Y2,j,Dist,MP: integer;
+Begin
+  j := MouseSpeed;
+  GetMousePos(X, Y);
+  Dist := Distance(X, Y, eX, eY);
+  MP := Round(Dist/150);
+  If MP < 0 Then
+    MP := 1;
+
+  randSpeed := (random(MouseSpeed) / 2.0 + MouseSpeed) / 10.0;
+  X2 := RandomRange(eX-(j*MP), eX+(j*MP));
+  Y2 := RandomRange(eY-(j*MP), eY+(j*MP));
+  SuperWindMouse(X, Y, X2, Y2, 11, 8, 10.0 / randSpeed, 12.0 / randSpeed, 10.0 * randSpeed, 10.0 * randSpeed);
+  GetMousePos(X, Y);
+  MMouse(eX, eY, ranX, ranY);
+  MouseSpeed := j;
+End;
+
+///////////////\\\\\\\\\\\\\\\\\\\
+
+//credit to CynicRus for this part.\
+
+Procedure FillDTMs;
+begin
+  //intialise array
+  SetLength(Runes, 6);
+  //Air
+  Air.DTM:= DTMFromString('m1gAAAHic42JgYNjJzMCwB4i3APFqIF4FxOuAeDcQHwHi40B8EIhLGRkY0qE4G4jLgLgJiFuAuA6Ii4A4B4hv3rwJNJUJihmR2OiYOMBIJEYAAIiCDpI=');
+  SetDTMName(Air.DTM, 'airDTM');
+  //Water
+  Water.DTM:=DTMFromString('mAAEAAHic42FgYNjOzMCwjxlCbwDiVVC8Doi3AfEhID4KxMeA+CAQz2BkYOgF4i4g7gPi6UA8B4iXAfEKIF4KxHOBeAoQ9wOxfP0uoC1MDHzSCmAaGXt7eTCYmhgxqKmpMoiKijDwScoxkAoYScTIAAAswxQl');
+  SetDTMName(Water.DTM, 'waterDTM');
+  //Fire
+  Fire.DTM:=DTMFromString('m6wAAAHic42ZgYOBhYWAQBWJeIGYF4v/MEMwMZPMBsTgQSwOxFBDPYmRgmADE3UDcB8STgXgOEC8D4hVQei4QTwXib4ssgaYzgbGVpTkDn7QCQ3hoMENIcCBc3EBBgUFUVISBFMBIAkYCAFF0DuM=');
+  SetDTMName(Fire.DTM, 'fireDTM');
+  //Earth
+  Earth.DTM:=DTMFromString('mKgEAAHic42NgYHjEzMDwDIjfAvErIP4IxO+A+DUQPwHiO0B8DYivQPEtIH4AxCWMDAzpQJwHxNmMEH4NEDcBcQsQtwJxAxBXAnExVA1IfW+XI9BWJqKxrY0VlE0eYCQTowIA9/UVRg==');
+  SetDTMName(Earth.DTM, 'earthDTM');
+  //Blood rune
+  Blood.DTM:=DTMFromString('maQEAAHicE2RgYOhjZmCYDcRTgXgCEHcBcRsQ1wNxExA3QOlOqPwMIJ4C1TMHiOcC8SNGBoabQHwFiC9D8TUgvgvET4D4JRC/A+L3QPwRiN9A+S+h8g+A+JBmMgOftAIYMzAwwTGfpByDt5cHnB0ZHspgoKDA4ORgD8YgNkI95YCRChgDAAB+8x+l');
+  SetDTMName(Blood.DTM, 'bloodDTM');
+  //Death rune
+  Death.DTM:=DTMFromString('mqAEAAHicrc7fCwFBEAfw73Kl/Lg8nNx00b643Ju/Q1KiJH8kItJdKS8U/xPfXSMvHm/q0+7OzE4TAWgFQJvqFNCr+uPeDYooVgn1lFBX6zX9fzHAjrZ0oJP55G70oKe601VrBZ3pSHu10RlFnkMkRpYNsZjPEEof69WSm1e86WSMkbX+nqYDf7qeZkcQJtb79rp82WFK9i/eG8Abuw==');
+  SetDTMName(Death.DTM, 'deathDTM');
+  Runes:=[Air, Water, Fire, Earth, Blood, Death];
+end;
+
+procedure FreeRune(r: TRune);
+begin
+  FreeDTM(r.DTM);
+end;
+
+procedure FreeDmt;
+var
+ i: integer;
+begin
+  for i:=0 to High(runes) do
+  begin
+   FreeRune(runes[i]);
+   WriteLn('All runeDTMs freed!');
+  end;
+end;
+
+function RunesCounter(RuneDTM: integer): Integer;
+var
+  x, y:Integer;
+begin
+  If FindDTM(RuneDTM, x, y, MIX1, MIY1, MIX2, MIY2) then
+  begin
+    Result:= GetAmount(x, y);
+  end;
+end;
+
+procedure PrintRuneCount(const r: TRune; count: integer);
+begin
+  WriteLn('You have'+#32+toStr(count)+#32+r.name+#32+'runes');
+end;
+
+function CheckInventory(): boolean;
+ var
+  i, x, y : integer;
+begin
+  result:=false;
+  FillDTMs;
+  for i:=0 to Length(runes)-1 do
+  begin
+    If FindDTM(runes[i].DTM, X, Y, MIX1, MIY1, MIX2, MIY2) then
+    begin
+      PrintRuneCount(runes[i],RunesCounter(runes[i].DTM));
+      result:=true;
+    end;
+  end;
+end;
+////////\\\\\\\\
+
+procedure FindEss;
+var
+  x, y: integer;
+begin
+  if WaitFindColor(x, y, 4737870, MMX1, MMY1, MMX2, MMY2, 7, 600) then
+  begin
+    WriteLn('Found the floating essence, we''re grabbing some.');
+    MMouse(x, y, 3, 3);
+    if WaitUptext('ollect', 300) then
+    begin
+      WriteLn('We found come essence! Collecting.');
+    end;
+  end;
+end;
+
+procedure CheckForEss;
+var
+  x, y: integer;
+begin
+  EssDTM1:= DTMFromString('mrAAAAHic42BgYHjEzMDwCYjfA/FLIH4AxDeB+CoU6zAyMOgDsTkQWwOxLZQ2BWJdIDYxNgKawoQH4weMBDAMAABmMAmO'); //1st slot.
+
+  if FindDTM(EssDTM1, x, y, MIX1, MIY1, MIX2, MIY2) then
+  begin
+    WriteLn('We have essence!');
+
+  end else
+    WriteLn('We don''t have Essence.');
+    FindEss;
+
+end;
+
+procedure Proggy;
+var
+  xp, xph: integer;
+  i1, i2, i3, i4, i5, i6, i7, i8: string;
+begin
+  XP := (GetXPBarTotal - StartingExperience);
+  XPH := (Round(XP * (3600.0 / (GetTimeRunning / 1000.0))));
+  i1:= ('[-------====Vinyl Runespan====-------]');
+  i2:= ('[-----------Version: ' + Version + '-----------]');
+  i3:= ('[Time Ran: ' + TimeRunning);
+  i4:= ('[You have gained: ' + IntToStr(xp) + 'XP');
+  i5:= ('[You are gaining: ' + IntToStr(XPH) + ' XP per hour');
+  i6:= ('[We are Siphoning: ' + Players[currentplayer].strings[0]);
+  i7:= ('[We have taken: ' + IntToStr(Breaks) + 'Breaks');
+  i8:= ('[-------====Vinyl RuneSpan====-------]');
+  WriteLn(i1);
+  WriteLn(i2);
+  WriteLn(i3);
+  WriteLn(i4);
+  WriteLn(i5);
+  WriteLn(i6);
+  WriteLn(i7);
+  WriteLn(i8);
+  {$IFDEF SMART}
+    SMART_ClearCanvas;
+    SMART_DrawTextEx(false, 5, 15, 'SmallChars', i1, clFuchsia);
+    SMART_DrawTextEx(false, 5, 30, 'SmallChars', i2, clFuchsia);
+    SMART_DrawTextEx(false, 5, 45, 'SmallChars', i3, clFuchsia);
+    SMART_DrawTextEx(false, 5, 60, 'SmallChars', i4, clFuchsia);
+    SMART_DrawTextEx(false, 5, 75, 'SmallChars', i5, clFuchsia);
+    SMART_DrawTextEx(false, 5, 90, 'SmallChars', i6, clFuchsia);
+    SMART_DrawTextEx(false, 5, 105, 'SmallChars', i7, clFuchsia);
+    SMART_DrawTextEx(false, 5, 120, 'SmallChars', i8, clFuchsia);
+  {$ENDIF}
+  CheckInventory;
+end;
+
+procedure OccasionCompass;
+begin
+  case Random(2) of
+    0: begin
+         MakeCompass(RandomRange(0, 360));
+         WriteLn('occasionCompass has moved the Angle!');
+       end;
+
+    1: begin
+         WriteLn('occasionCompass has done nothing!');
+       end;
+  end;
+end;
+
+procedure LogPlayerIn;
+begin
+  LogInPlayer;
+  sleep(4000 + Random(3000))
+end;
+
+function IsSiphoning: Boolean;
+var
+  SBox: TBox;
+begin
+  SBox:= IntToBox((233), (187-50), (276), (239-50));
+  {$IFDEF SMART}
+    SMART_DrawBoxEx(false, false, SBox, CLBlue);
+  {$ENDIF}
+  Result:= (AveragePixelShift(SBox, 20, 500) > 200);
+  WriteLn('The average shift of the pixels is: ' + IntToStr(AveragePixelShift(Sbox, 20, 500)));
+end;
+
+procedure Antiban;
+var
+  w, h, w2, h2: integer;
+begin
+  case Random(51) of
+  0: begin
+       GetClientDimensions(w, h);
+       w2:= w / 5;
+       h2:= h / 5;
+       HumanMMouse(Random(w), Random(h), Random(w2), Random(h2));
+     end;
+
+  1: begin
+       MMouse(300, 0, w, 0);
+       Wait(RandomRange(30000, 50000));
+     end;
+
+  2: begin
+       HumanMMouse(RandomRange(500, 600), 0, 0, 0);
+       Wait(RandomRange(10000, 20000));
+       HumanMMouse(RandomRange(100, 700), RandomRange(100, 700), RandomRange(100, 500), RandomRange(100, 500));
+       HumanMMouse(Random(w), Random(h), 30, 30);
+     end;
+
+  3: begin
+       BoredHuman;
+       WriteLn('Bot is bored..');
+     end;
+
+  4: begin
+       ExamineInv;
+       WriteLn('Bot examines random stuff..');
+     end;
+
+  5: begin
+       RandomFKeys(false);
+       WriteLn('Bot is pressing random stuff.');
+     end;
+
+  6: begin
+       GameTab(Tab_stats);
+       HoverSkill('Runecrafting', false);
+       WriteLn('Bot is checking Runecrafting skill level.');
+     end;
+
+  7: begin
+       PickupMouse;
+       WriteLn('Ohh.. What an interesting mouse..');
+     end;
+
+  8: begin
+      TakeBreak;
+      WriteLn('Bot is taking a break for a little while.');
+     end;
+
+
+  9..100: begin
+           WriteLn('Bot is not doing AntiBan this time.');
+         end;
+
+  end;
+end;
+
+procedure CheckForSiphon;
+begin
+  if isSiphoning then
+  begin
+    WriteLn('We''re still siphoning..');
+    Wait(RandomRange(1000, 2000));
+    AntiBan;
+  end;
+end;
+
+procedure Siphon(UpText: TStringArray; Color, Tol: Integer; HMod, SMod: Extended);
+var
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+  CTS, i, x, y, startSiphon: Integer;
+begin
+  if not LoggedIn then
+    LogPlayerIn;
+  CTS := GetColorToleranceSpeed;
+  ColorToleranceSpeed(2);
+  SetColorSpeed2Modifiers(HMod, SMod);
+  if FindColorsSpiralTolerance(x, y, TPA, Color, MSX1, MSY1, MSX2, MSY2, Tol) then
+  begin
+    ATPA := SplitTPA(TPA, 6);
+    SortATPASize(ATPA, True);
+    for i := 0 to High(ATPA) do
+    begin
+      if length(atpa[i]) < 2 then
+      begin
+        MiddleTPAEx(ATPA[i], x, y);
+        HumanMMouse(x, y, 2, 2);
+        if WaitUpTextMulti(UpText, 150) then
+        begin
+          ClickMouse2(True);
+          if (DidRedClick) then
+          begin
+            Wait(RandomRange(500, 1000));
+            if isSiphoning then
+            begin
+              {$IFDEF SMART}
+                SMART_DrawDotsMulti(false, ATPA);
+              {$ENDIF}
+              writeln('We''re Siphoning!');
+              AntiBan;
+              wait(RandomRange(5000, 7000));
+              MarkTime(startSiphon);
+              repeat
+                CheckForSiphon;
+              until(not(isSiphoning) or (TimeFromMark(startSiphon) > 300000));
+              if not isSiphoning then
+                WriteLn('Finished siphoning the monster, or siphoning took to long.');
+              OccasionCompass;
+              Break;
+            end;
+          end
+          else
+          begin
+            FindNormalRandoms;
+            WriteLn('We didn''t find the monster or missclicked, we''ll look again.');
+          end;
+        end;
+      end;
+    end;
+  end;
+  ColorToleranceSpeed(CTS);
+  SetColorSpeed2Modifiers(0.2, 0.2);
+  proggy;
+end;
+
+procedure TargetCreature;
+begin
+  case Lowercase(Players[currentplayer].Strings[0]) of
+    'air':    Siphon(['iphon Air', 'hon Air', 'hon Air essling'], 8682082, 3, 0.85, 1.05);
+    'fire':   Siphon(['iphon Fire', 'hon Fire', 'hon Fire essling'], 5401236, 7, 0.10, 0.75);
+    'earth':  Siphon(['iphon Earth', 'hon Earth', 'hon Earth essling'], 4287110, 2, 0.33, 0.40);
+    'water':  Siphon(['iphon Water', 'hon Water', 'hon Water essling'], 5194866, 7, 0.10, 0.75);
+
+    'body':   Siphon(['iphon  Body', 'hon Body', 'hon Body esshound'], 4665392, 4, 0.04, 2.90);
+    'law':    Siphon(['iphon Law', 'hon Law', 'hon Law esshound'], 16771982, 7, 0.68, 1.2);
+    'astral': Siphon(['iphon Astral', 'hon Astral', 'hon Astral esshound'], 13346751, 7, 1.07, 0.35);
+    'nature': Siphon(['iphon Nature', 'hon Nature', 'hon Nature esshound'], 6475918, 5, 0.92, 1.02);
+    'chaos':  Siphon(['iphon Chaos', 'hon Chaos', 'hon Chaos esshound'], 16626601, 2, 1.11, 1.02);
+
+    'blood':  Siphon(['iphon  Blood', 'hon Blood', 'hon Blood esswraith'], 3096426, 5, 0.41, 0.72);
+    'soul':   Siphon(['iphon Soul', 'hon Soul', 'hon Soul esswraith'], 8026467, 7, 4.16, 0.24);
+    'death':  Siphon(['iphon Death', 'hon Death', 'hon Death esswraith'], 4083786, 10, 0.41, 0.24);
+  end;
+end;
+
+{  //Will work on in future, need to make TPA/ATPA to find and ect.
+procedure NodeOrCreature;
+begin
+  case Random(50) of
+    0..35: TargetCreatures;
+
+    36..49: SiphonNodes;
+  end;
+end;
+}
+procedure FreeEss;
+begin
+  FreeDTM(EssDTM1);
+  WriteLn('All Essence DTMs free!');
+end;
+
+begin
+  SetupSRL;
+  ClearDebug;
+  {$IFDEF SMART}
+    SRL_SixHourFix := True;
+    Smart_FixSpeed := True;
+  {$ENDIF}
+  DeclarePlayers;
+  LogPlayerIn;
+  StartingExperience:= GetXPBarTotal;
+  repeat
+    CheckForEss;
+    WriteLn('Calling procedure: CheckForEss');
+    TargetCreature;
+    WriteLn('Calling procedure: TargetCreature');
+    FindNormalRandoms;
+    WriteLn('FindNormalRandoms.');
+    Proggy;
+    WriteLn('Calling procedure: Proggy');
+    if not LoggedIn then
+    begin
+      LogPlayerIn;
+    end;
+    FreeDmt;
+    Wait(Randomrange(100, 200));
+    FreeEss;
+    Wait(Randomrange(100, 200));
+  until not LoggedIn;
+  FreeSRL;
+  Wait(Randomrange(100, 200));
+  AddOnTerminate('FreeDmt');
+  Wait(Randomrange(100, 200));
+  AddOnTerminate('FreeEss');
+  Wait(Randomrange(100, 200));
+  AddOnTerminate('FreeSRL');
+end.
