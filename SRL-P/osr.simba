@@ -1,0 +1,167 @@
+//my own personal include, for convenience.
+
+{$IFNDEF SRL_OSR}
+  {$I SRL/osr.simba}
+{$ENDIF}
+
+var
+  MSXPBox:= box(455, 44, 514, 141); //xp gain box when skilling.
+
+
+{
+  draws tiles; you can pass variables to worldtile.
+
+  ex:
+    var
+      banktile: TPoint:= [123, 456];
+
+      drawtile(walkit, banktile);
+}
+procedure drawtile(walker: trswalker; worldtile: tpoint; tilecolor: int32 = clwhite);
+var
+  tilebox: tbox;
+begin
+  tilebox:= minimap.PointToMsbox(walker.WorldToMM(worldtile), minimap.GetCompassAngle(false));
+
+  rsclient.image.DrawBox(tilebox, tilecolor);
+
+  //rsclient.image.clear;
+end;
+
+
+{
+  moves mouse to given world map tpoint
+
+  mousetile(walker:trswalker; worldtile:tpoint);
+}
+procedure mousetile(walker: trswalker; worldtile: tpoint; drawtile: boolean = false);
+var
+  tilebox: tbox;
+begin
+  tilebox:= minimap.PointToMsbox(walker.WorldToMM(worldtile), minimap.GetCompassAngle(false));
+  if drawtile then
+    rsclient.image.DrawBox(tilebox, clwhite);
+
+  mouse.move(tilebox.Middle);
+
+  if drawtile then
+    rsclient.image.clear;
+end;
+
+
+
+{
+    good for proggies. each string in the array is an individual line,
+    ex:
+
+        lineprinter(['123', '4', '5', '6']);
+        prints:
+
+        123
+        4
+        5
+        6
+
+    pass variables as strings,
+    ex:
+
+        var
+          string1, string2, string3: string;
+          String_array: tstringarray;
+
+        stringarray:= [string1, string2, string3];
+
+        lineprinter([string1, string2, string3]);
+
+        //or
+
+        lineprinter(string_array);
+
+}
+
+procedure lineprinter(stringarray: TStringArray; topleft: tpoint = [10, 20]);
+var
+  i: int32;
+begin
+  rsclient.image.clear;
+
+  if (length(stringarray) < 1) then
+  begin
+    writeln('No strings in stringarray');
+    exit;
+  end;
+
+  for i:=0 to high(stringarray) do
+  begin
+    rsclient.Image.DrawText(stringarray[i], topleft, clwhite);
+    writeln(stringarray[i]);
+    topleft.y:= (topleft.y + 20)
+  end;
+
+  wait(10);
+
+end;
+
+(*
+      drawpos; draws walker coords
+*)
+
+procedure drawpos(walker: trswalker);
+var
+  currentpos: tpoint;
+begin
+  currentpos:= walker.GetMyPos;
+  lineprinter(['walker coords: ' + tostr(currentpos), 'mainscreen coords: ' + tostr(minimap.pointtoms(walker.WorldToMM(currentpos))), 'minimap coords: ' + tostr(walker.WorldToMM(currentpos)) ]);
+end;
+
+
+{
+
+    cleans screen of drawn data.
+    compatible with AddOnTerminate
+
+}
+procedure wipe;
+begin
+  rsclient.image.clear;
+end;
+
+
+{
+
+    checks for XP gain using pixelshift in top right of mainscreen
+
+}
+
+function isXPGain(printshift: boolean = true): boolean;
+begin
+  if printshift then
+    writeln('pixelshift: ' + tostr(srl.GetPixelShift(MSXPBox, 100)));
+  result:= srl.IsAnimating(MSXPBox, 250, 100, 3);
+end;
+
+
+{
+
+      takes short break as if we got distracted
+      the higher the int for chance, the less likely the break
+
+      getdistracted;
+      -OR-
+      getdistracted(225);
+}
+
+procedure getdistracted(chance: integer = 100; maxbreaktime: integer = 30000; breakcounter: integer);
+var
+  breaktime, breakstaken: integer;
+begin
+  case random(chance) of
+    0: begin
+         breaktime:= randomrange(5000, maxbreaktime);
+         breakcounter:= breakcounter + 1;
+         writeln('distracted for: ' + tostr(breaktime) + 'breaks taken: ' + tostr(breakstaken));
+         wait(breaktime);
+       end;
+    1..chance: writeln('not taking break');
+  end;
+end;
